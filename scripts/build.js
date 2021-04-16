@@ -4,11 +4,12 @@ const zlib = require('zlib')
 const rollup = require('rollup')
 const terser = require('terser')
 
-if (!fs.existsSync('dist')) {
+if (!fs.existsSync('dist')) { //如果根目录不存在 dist 文件夹，就生成 dist 文件夹（rollup构建的目标目录都在 dist 文件夹）
   fs.mkdirSync('dist')
 }
 
 let builds = require('./config').getAllBuilds()
+// 从 ./script/config.js 文件获取所有的不同构建目标的 rollup 打包配置，builds 是一个数组
 
 // filter builds via command line arg
 if (process.argv[2]) {
