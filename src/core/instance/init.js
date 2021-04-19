@@ -54,7 +54,7 @@ export function initMixin (Vue: Class<Component>) {
     initRender(vm)
     callHook(vm, 'beforeCreate')
     initInjections(vm) // resolve injections before data/props
-    initState(vm)
+    initState(vm) // 初始化 data 对象，并添加响应式
     initProvide(vm) // resolve provide after data/props
     callHook(vm, 'created')
 
@@ -65,7 +65,7 @@ export function initMixin (Vue: Class<Component>) {
       measure(`vue ${vm._name} init`, startTag, endTag)
     }
 
-    if (vm.$options.el) {
+    if (vm.$options.el) { // 如果传入了 el 参数（页面上的 dom 元素），那么就调用实例的 $mount 方法挂载
       vm.$mount(vm.$options.el)
     }
   }

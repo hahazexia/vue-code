@@ -110,11 +110,12 @@ function initProps (vm: Component, propsOptions: Object) {
 }
 
 function initData (vm: Component) {
-  let data = vm.$options.data
+  let data = vm.$options.data // 从 $options 上拿到 data 属性 
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
-  if (!isPlainObject(data)) {
+    // 如果 data 是个函数，就调用它获取到定义的属性
+  if (!isPlainObject(data)) { // 如果 data 是个对象就报一个警告
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
       'data functions should return an object:\n' +
@@ -123,11 +124,11 @@ function initData (vm: Component) {
     )
   }
   // proxy data on instance
-  const keys = Object.keys(data)
-  const props = vm.$options.props
-  const methods = vm.$options.methods
+  const keys = Object.keys(data) //获取到 data 上的 key
+  const props = vm.$options.props //获取 props
+  const methods = vm.$options.methods // 获取 methods
   let i = keys.length
-  while (i--) {
+  while (i--) { // 循环 data 键组成的数组，和 props methods 的键做对比，如果有重复的就报一个警告
     const key = keys[i]
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
@@ -144,11 +145,11 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
-      proxy(vm, `_data`, key)
+      proxy(vm, `_data`, key) // 为实例添加 _data 属性并添加 getter setter，使得可以直接从 this 上获取 data 中的值
     }
   }
   // observe data
-  observe(data, true /* asRootData */)
+  observe(data, true /* asRootData */) // 使 data 中的数据变成响应式的
 }
 
 export function getData (data: Function, vm: Component): any {

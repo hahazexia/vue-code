@@ -151,6 +151,7 @@ export function hasOwn (obj: Object | Array<*>, key: string): boolean {
  * Create a cached version of a pure function.
  */
 export function cached<F: Function> (fn: F): F {
+  // 将 fn(str) 的结果每次都缓存到闭包变量 cache 中，其实就是创建了一个函数的可缓存结果的版本
   const cache = Object.create(null)
   return (function cachedFn (str: string) {
     const hit = cache[str]

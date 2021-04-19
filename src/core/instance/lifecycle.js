@@ -143,13 +143,13 @@ export function mountComponent (
   el: ?Element,
   hydrating?: boolean
 ): Component {
-  vm.$el = el
-  if (!vm.$options.render) {
-    vm.$options.render = createEmptyVNode
-    if (process.env.NODE_ENV !== 'production') {
+  vm.$el = el // el 挂到实例的 $el 上
+  if (!vm.$options.render) { // 如果经过解析后还是没有 render 方法
+    vm.$options.render = createEmptyVNode // 就让 render 方法是生成空节点的方法
+    if (process.env.NODE_ENV !== 'production') { // 然后报错误信息
       /* istanbul ignore if */
       if ((vm.$options.template && vm.$options.template.charAt(0) !== '#') ||
-        vm.$options.el || el) {
+        vm.$options.el || el) { // 如果提供了 template 或者 el 参数，却没有生成 render 方法，说明是 runtime only 的版本
         warn(
           'You are using the runtime-only build of Vue where the template ' +
           'compiler is not available. Either pre-compile the templates into ' +
@@ -169,31 +169,32 @@ export function mountComponent (
   let updateComponent
   /* istanbul ignore if */
   if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
-    updateComponent = () => {
+    updateComponent = () => {// 如果开启了 performance 性能追踪模式
       const name = vm._name
       const id = vm._uid
       const startTag = `vue-perf-start:${id}`
       const endTag = `vue-perf-end:${id}`
 
       mark(startTag)
-      const vnode = vm._render()
+      const vnode = vm._render() // 调用 _render 生成 vnode
       mark(endTag)
       measure(`vue ${name} render`, startTag, endTag)
 
       mark(startTag)
-      vm._update(vnode, hydrating)
+      vm._update(vnode, hydrating) // 调用 _update 更新 vnode
       mark(endTag)
       measure(`vue ${name} patch`, startTag, endTag)
     }
   } else {
     updateComponent = () => {
-      vm._update(vm._render(), hydrating)
+      vm._update(vm._render(), hydrating) // 调用 _update 更新 vnode
     }
   }
 
   // we set this to vm._watcher inside the watcher's constructor
   // since the watcher's initial patch may call $forceUpdate (e.g. inside child
   // component's mounted hook), which relies on vm._watcher being already defined
+  // 将 updateComponent 传递给 Watcher 构造函数，每次数据改变视图需要更新的时候都会被 wacher 发现然后调用 updateComponent ，然后调用 _render() 生成新的 vnode，然后 _update 更新视图
   new Watcher(vm, updateComponent, noop, {
     before () {
       if (vm._isMounted && !vm._isDestroyed) {

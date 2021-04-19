@@ -37,8 +37,8 @@ Vue.prototype.__patch__ = inBrowser ? patch : noop
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
-): Component {
-  el = el && inBrowser ? query(el) : undefined
+): Component { // runtime only 的 $mount 方法
+  el = el && inBrowser ? query(el) : undefined // 判断是否是浏览器环境，如果是就获取 el 参数对应的 dom 元素
   return mountComponent(this, el, hydrating)
 }
 
