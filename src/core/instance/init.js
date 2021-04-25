@@ -42,7 +42,7 @@ export function initMixin (Vue: Class<Component>) {
       )
     }
     /* istanbul ignore else */
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'production') { // 如果是生产环境，vm._renderProxy 就是 vm，开发环境 _renderProxy 是一个 proxy 对象
       initProxy(vm)
     } else {
       vm._renderProxy = vm

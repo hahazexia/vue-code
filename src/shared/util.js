@@ -103,6 +103,7 @@ export function toNumber (val: string): number | string {
  * Make a map and return a function for checking if a key
  * is in that map.
  */
+// 根据逗号分隔的字符串，创建一个 map ，并返回一个方法用于判断这个 key 是否在 map 上存在
 export function makeMap (
   str: string,
   expectsLowerCase?: boolean

@@ -181,13 +181,13 @@ export function mountComponent (
       measure(`vue ${name} render`, startTag, endTag)
 
       mark(startTag)
-      vm._update(vnode, hydrating) // 调用 _update 更新 vnode
+      vm._update(vnode, hydrating) // 调用 _update 将 vnode 变成真正的 dom
       mark(endTag)
       measure(`vue ${name} patch`, startTag, endTag)
     }
   } else {
     updateComponent = () => {
-      vm._update(vm._render(), hydrating) // 调用 _update 更新 vnode
+      vm._update(vm._render(), hydrating) // 调用 _update 将 vnode 变成真正的 dom
     }
   }
 

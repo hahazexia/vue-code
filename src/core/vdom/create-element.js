@@ -26,14 +26,16 @@ const ALWAYS_NORMALIZE = 2
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
 export function createElement (
-  context: Component,
-  tag: any,
-  data: any,
-  children: any,
+  context: Component, // vm 实例
+  tag: any, // html标签
+  data: any, // 一些相关数据
+  children: any, // 子节点 还是 vnode
   normalizationType: any,
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
+  // 创建 vnode 
   if (Array.isArray(data) || isPrimitive(data)) {
+    // 参数移位，因为 data 参数可以省略
     normalizationType = children
     children = data
     data = undefined
@@ -51,7 +53,7 @@ export function _createElement (
   children?: any,
   normalizationType?: number
 ): VNode | Array<VNode> {
-  if (isDef(data) && isDef((data: any).__ob__)) {
+  if (isDef(data) && isDef((data: any).__ob__)) { // 判断 data 参数对象是否是响应式的，如果是响应式的就报错
     process.env.NODE_ENV !== 'production' && warn(
       `Avoid using observed data object as vnode data: ${JSON.stringify(data)}\n` +
       'Always create fresh vnode data objects in each render!',
@@ -60,17 +62,17 @@ export function _createElement (
     return createEmptyVNode()
   }
   // object syntax in v-bind
-  if (isDef(data) && isDef(data.is)) {
+  if (isDef(data) && isDef(data.is)) { // 判断如果使用了动态组件，给component绑定了is属性，那么 tag 就是 is 属性指向的组件标签名
     tag = data.is
   }
-  if (!tag) {
+  if (!tag) { // 如果没有 tag，创建空 vnode 返回
     // in case of component :is set to falsy value
     return createEmptyVNode()
   }
   // warn against non-primitive key
   if (process.env.NODE_ENV !== 'production' &&
     isDef(data) && isDef(data.key) && !isPrimitive(data.key)
-  ) {
+  ) { // 如果 data.key 不是简单类型数据报错
     if (!__WEEX__ || !('@binding' in data.key)) {
       warn(
         'Avoid using non-primitive value as key, ' +
@@ -88,12 +90,13 @@ export function _createElement (
     children.length = 0
   }
   if (normalizationType === ALWAYS_NORMALIZE) {
+    // children 期望是一个数组，每个元素是一个 vnode ，调用 normalizeChildren 方法将嵌套的数组展平
     children = normalizeChildren(children)
   } else if (normalizationType === SIMPLE_NORMALIZE) {
     children = simpleNormalizeChildren(children)
   }
   let vnode, ns
-  if (typeof tag === 'string') {
+  if (typeof tag === 'string') { // 如果 tag 是字符串, 就new 一个 vnode
     let Ctor
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
     if (config.isReservedTag(tag)) {
@@ -108,10 +111,10 @@ export function _createElement (
         config.parsePlatformTagName(tag), data, children,
         undefined, undefined, context
       )
-    } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
+    } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {// 如果是 component
       // component
       vnode = createComponent(Ctor, data, context, children, tag)
-    } else {
+    } else { // 如果不认识的标签名
       // unknown or unlisted namespaced elements
       // check at runtime because it may get assigned a namespace when its
       // parent normalizes children
@@ -120,7 +123,7 @@ export function _createElement (
         undefined, undefined, context
       )
     }
-  } else {
+  } else {// 否则创建 component
     // direct component options / constructor
     vnode = createComponent(tag, data, context, children)
   }

@@ -16,7 +16,7 @@ import VNode, { createEmptyVNode } from '../vdom/vnode'
 
 import { isUpdatingChildComponent } from './lifecycle'
 
-export function initRender (vm: Component) {
+export function initRender (vm: Component) { // Vue.prototype._init 调用的时候会执行 initRender
   vm._vnode = null // the root of the child tree
   vm._staticTrees = null // v-once cached trees
   const options = vm.$options
@@ -32,6 +32,7 @@ export function initRender (vm: Component) {
   // normalization is always applied for the public version, used in
   // user-written render functions.
   vm.$createElement = (a, b, c, d) => createElement(vm, a, b, c, d, true)
+  // 当用户手写 render 函数传入 options 时，就调用 vm.$createElement，如果 render 函数是从 template 编译而来，就使用 vm._c
 
   // $attrs & $listeners are exposed for easier HOC creation.
   // they need to be reactive so that HOCs using them are always updated
@@ -66,9 +67,9 @@ export function renderMixin (Vue: Class<Component>) {
     return nextTick(fn, this)
   }
 
-  Vue.prototype._render = function (): VNode {
+  Vue.prototype._render = function (): VNode { // _render 返回值是一个 vnode
     const vm: Component = this
-    const { render, _parentVnode } = vm.$options
+    const { render, _parentVnode } = vm.$options // render函数是在 $mount 中根据 template 的 dom 生成的方法
 
     if (_parentVnode) {
       vm.$scopedSlots = normalizeScopedSlots(
@@ -89,6 +90,8 @@ export function renderMixin (Vue: Class<Component>) {
       // when parent component is patched.
       currentRenderingInstance = vm
       vnode = render.call(vm._renderProxy, vm.$createElement)
+      // 调用 render 函数生成 vnode，this 对象是 vm._renderProxy，生产环境它就是 vm，开发环境是一个 proxy 对象
+      // vm._renderProxy 是在 _init 阶段定义的
     } catch (e) {
       handleError(e, vm, `render`)
       // return error render result,
@@ -112,14 +115,16 @@ export function renderMixin (Vue: Class<Component>) {
       vnode = vnode[0]
     }
     // return empty vnode in case the render function errored out
-    if (!(vnode instanceof VNode)) {
+    if (!(vnode instanceof VNode)) { // 如果新生成的 vnode 不是 VNode 实例
       if (process.env.NODE_ENV !== 'production' && Array.isArray(vnode)) {
+        // 如果这时候 vnode 是个数组，说明模板有多个根节点，生成了多个 vnode ，报出警告
         warn(
           'Multiple root nodes returned from render function. Render function ' +
           'should return a single root node.',
           vm
         )
       }
+      //否则生成一个空的 vnode
       vnode = createEmptyVNode()
     }
     // set parent

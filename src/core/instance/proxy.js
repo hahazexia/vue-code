@@ -57,7 +57,9 @@ if (process.env.NODE_ENV !== 'production') {
       const has = key in target
       const isAllowed = allowedGlobals(key) ||
         (typeof key === 'string' && key.charAt(0) === '_' && !(key in target.$data))
-      if (!has && !isAllowed) {
+      if (!has && !isAllowed) { // Proxy 拦截 如果 key 不存在，并且也不是全局属性，并且不是_开头的内部属性
+        // 如果属性在 $data 上存在，说明这是个 $ 或者 _ 开头的属性，需要使用 $data.key 方式获取
+        // 否则说明这个属性不存在，忘记定义了
         if (key in target.$data) warnReservedPrefix(target, key)
         else warnNonPresent(target, key)
       }
@@ -76,7 +78,7 @@ if (process.env.NODE_ENV !== 'production') {
   }
 
   initProxy = function initProxy (vm) {
-    if (hasProxy) {
+    if (hasProxy) { // 判断浏览器是否原生支持 Proxy 对象
       // determine which proxy handler to use
       const options = vm.$options
       const handlers = options.render && options.render._withStripped
