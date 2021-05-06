@@ -276,14 +276,14 @@ function checkComponents (options: Object) {
   }
 }
 
-export function validateComponentName (name: string) {
-  if (!new RegExp(`^[a-zA-Z][\\-\\.0-9_${unicodeRegExp.source}]*$`).test(name)) {
+export function validateComponentName (name: string) { // 判断组件 name 是否合法
+  if (!new RegExp(`^[a-zA-Z][\\-\\.0-9_${unicodeRegExp.source}]*$`).test(name)) { // 组件名是否符合 h5 规范
     warn(
       'Invalid component name: "' + name + '". Component names ' +
       'should conform to valid custom element name in html5 specification.'
     )
   }
-  if (isBuiltInTag(name) || config.isReservedTag(name)) {
+  if (isBuiltInTag(name) || config.isReservedTag(name)) { // 如果是原生或保留 html 标签名作为组件 name，报错
     warn(
       'Do not use built-in or reserved HTML elements as component ' +
       'id: ' + name

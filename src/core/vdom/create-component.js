@@ -33,7 +33,7 @@ import {
 } from 'weex/runtime/recycle-list/render-component-template'
 
 // inline hooks to be invoked on component VNodes during patch
-const componentVNodeHooks = {
+const componentVNodeHooks = { // 组件默认的钩子 init prepatch insert destroy
   init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
     if (
       vnode.componentInstance &&
@@ -104,21 +104,25 @@ export function createComponent (
   context: Component,
   children: ?Array<VNode>,
   tag?: string
-): VNode | Array<VNode> | void {
+): VNode | Array<VNode> | void { // 此方法用于创建 component 的 vnode
   if (isUndef(Ctor)) {
     return
   }
 
   const baseCtor = context.$options._base
+  // baseCtor 就是 Vue 构造函数
+  // 在 src/core/global-api/index 中定义了 Vue.options._base = Vue
+  // 在 Vue.prototype._init 中会把 Vue.options 合并到 vm.$options 中
+
 
   // plain options object: turn it into a constructor
-  if (isObject(Ctor)) {
+  if (isObject(Ctor)) { // 如果 Ctor 是个对象，就调用 Vue.extend() 对于这个组件创建一个继承自 Vue 的子构造器。Vue.extend 定义在 src/core/global-api/extend 中
     Ctor = baseCtor.extend(Ctor)
   }
 
   // if at this stage it's not a constructor or an async component factory,
   // reject.
-  if (typeof Ctor !== 'function') {
+  if (typeof Ctor !== 'function') { // 如果子构造器生成失败，报错
     if (process.env.NODE_ENV !== 'production') {
       warn(`Invalid Component definition: ${String(Ctor)}`, context)
     }
@@ -183,6 +187,7 @@ export function createComponent (
   }
 
   // install component management hooks onto the placeholder node
+  // 安装组件钩子
   installComponentHooks(data)
 
   // return a placeholder vnode
@@ -193,6 +198,7 @@ export function createComponent (
     { Ctor, propsData, listeners, tag, children },
     asyncFactory
   )
+  // 生成 vnode。component 的 vnode 和普通 vnode 不一样，第三个参数 children 是 undefined。也就是说 component 对应的 vnode 的 children 是空。但是它有 componentOptions 是一个对象，里面有 children
 
   // Weex specific: invoke recycle-list optimized @render function for
   // extracting cell-slot template.
@@ -223,19 +229,19 @@ export function createComponentInstanceForVnode (
   return new vnode.componentOptions.Ctor(options)
 }
 
-function installComponentHooks (data: VNodeData) {
+function installComponentHooks (data: VNodeData) { // 初始化组件默认的钩子
   const hooks = data.hook || (data.hook = {})
-  for (let i = 0; i < hooksToMerge.length; i++) {
+  for (let i = 0; i < hooksToMerge.length; i++) { // 遍历四个钩子 init prepatch insert destroy
     const key = hooksToMerge[i]
     const existing = hooks[key]
     const toMerge = componentVNodeHooks[key]
-    if (existing !== toMerge && !(existing && existing._merged)) {
+    if (existing !== toMerge && !(existing && existing._merged)) { // 将 VnodeData 的 hook 也就是用户自定义的 hook 和 vnode 默认的 hook 合并，钩子触发后会依次执行
       hooks[key] = existing ? mergeHook(toMerge, existing) : toMerge
     }
   }
 }
 
-function mergeHook (f1: any, f2: any): Function {
+function mergeHook (f1: any, f2: any): Function { // 将自定义钩子函数和默认钩子函数合并
   const merged = (a, b) => {
     // flow complains about extra args which is why we use any
     f1(a, b)

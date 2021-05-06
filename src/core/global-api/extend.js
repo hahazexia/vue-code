@@ -18,28 +18,28 @@ export function initExtend (Vue: GlobalAPI) {
    */
   Vue.extend = function (extendOptions: Object): Function {
     extendOptions = extendOptions || {}
-    const Super = this
+    const Super = this // 就是 Vue
     const SuperId = Super.cid
-    const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
+    const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {}) // 将生成好的子类构造器缓存优化，下次传入同样的参数就不用再次生成了
     if (cachedCtors[SuperId]) {
       return cachedCtors[SuperId]
     }
 
     const name = extendOptions.name || Super.options.name
     if (process.env.NODE_ENV !== 'production' && name) {
-      validateComponentName(name)
+      validateComponentName(name) // 判断组件 name 属性是否合法，不合法就会报错
     }
 
-    const Sub = function VueComponent (options) {
+    const Sub = function VueComponent (options) { // 创建了一个子构造函数，里面也是调用了 Vue.prototype._init
       this._init(options)
     }
-    Sub.prototype = Object.create(Super.prototype)
+    Sub.prototype = Object.create(Super.prototype) // Sub 构造函数继承自 Vue
     Sub.prototype.constructor = Sub
     Sub.cid = cid++
     Sub.options = mergeOptions(
       Super.options,
       extendOptions
-    )
+    ) // 自身的 options 和 Vue.optinos 做了合并
     Sub['super'] = Super
 
     // For props and computed properties, we define the proxy getters on
@@ -75,7 +75,7 @@ export function initExtend (Vue: GlobalAPI) {
     Sub.sealedOptions = extend({}, Sub.options)
 
     // cache constructor
-    cachedCtors[SuperId] = Sub
+    cachedCtors[SuperId] = Sub // 将 Sub 构造函数缓存
     return Sub
   }
 }
