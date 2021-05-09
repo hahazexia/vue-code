@@ -18,12 +18,12 @@ import {
   invokeWithErrorHandling
 } from '../util/index'
 
-export let activeInstance: any = null
+export let activeInstance: any = null // 定义了全局变量 activeInstance
 export let isUpdatingChildComponent: boolean = false
 
-export function setActiveInstance(vm: Component) {
-  const prevActiveInstance = activeInstance
-  activeInstance = vm
+export function setActiveInstance(vm: Component) { // 为全局变量 activeInstance 赋值
+  const prevActiveInstance = activeInstance // 存下上一个 activeInstance
+  activeInstance = vm // 赋值当前 vm 为 activeInstance
   return () => {
     activeInstance = prevActiveInstance
   }
@@ -33,15 +33,15 @@ export function initLifecycle (vm: Component) {
   const options = vm.$options
 
   // locate first non-abstract parent
-  let parent = options.parent
+  let parent = options.parent // 父组件
   if (parent && !options.abstract) {
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }
-    parent.$children.push(vm)
+    parent.$children.push(vm) // vm 是子组件，push 到父组件的$children中
   }
 
-  vm.$parent = parent
+  vm.$parent = parent // 子组件$parent指向父组件
   vm.$root = parent ? parent.$root : vm
 
   vm.$children = []
@@ -60,8 +60,10 @@ export function lifecycleMixin (Vue: Class<Component>) {
     const vm: Component = this
     const prevEl = vm.$el
     const prevVnode = vm._vnode
-    const restoreActiveInstance = setActiveInstance(vm)
+    const restoreActiveInstance = setActiveInstance(vm) // 为全局变量 activeInstance 赋值
     vm._vnode = vnode
+    // 渲染vnode赋值给 _vnode
+    // 渲染 vnode 也就是 _vnode 和 $vnode 是一个父子关系，$vnode（占位符vnode）是父级
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
     if (!prevVnode) {
@@ -203,7 +205,7 @@ export function mountComponent (
         callHook(vm, 'beforeUpdate')
       }
     }
-  }, true /* isRenderWatcher */)
+  }, true /* isRenderWatcher */) // 渲染 watcher
   hydrating = false
 
   // manually mounted instance, call mounted on self

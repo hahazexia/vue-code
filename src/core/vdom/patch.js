@@ -141,7 +141,7 @@ export function createPatchFunction (backend) {
     }
 
     vnode.isRootInsert = !nested // for transition enter check
-    if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
+    if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) { // 如果 vnode 是组件 vnode，则调用组件的 hook.init，就会继续创建子组件
       return
     }
 
@@ -214,6 +214,7 @@ export function createPatchFunction (backend) {
     if (isDef(i)) {
       const isReactivated = isDef(vnode.componentInstance) && i.keepAlive
       if (isDef(i = i.hook) && isDef(i = i.init)) {
+        // vnode.data.hook 就是 `src/core/vdom/create-comonent` 的  createComponent 方法在创建 comonent 的时候初始化的 4 个 hook
         i(vnode, false /* hydrating */)
       }
       // after calling the init hook, if the vnode is a child component
@@ -221,6 +222,8 @@ export function createPatchFunction (backend) {
       // component also has set the placeholder vnode's elm.
       // in that case we can just return the element and be done.
       if (isDef(vnode.componentInstance)) {
+        // 子组件通过 patch 流程变成 dom 后不会在 createElm 方法中 insert，而是在这里 insert
+        // createElm 方法中总是会去执行 createComponent，所以组件的顺序是，先插入子组件，再插入父组件
         initComponent(vnode, insertedVnodeQueue)
         insert(parentElm, vnode.elm, refElm)
         if (isTrue(isReactivated)) {

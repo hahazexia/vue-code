@@ -30,6 +30,7 @@ export function initMixin (Vue: Class<Component>) {
     vm._isVue = true
     // merge options
     if (options && options._isComponent) {
+      // 组件vnode patch 的时候会调用组件内部hook的init，然后会调用到子类构造函数Sub，Sub会调用 this._init走到这里，这时候的vm是Sub子类的实例
       // optimize internal component instantiation
       // since dynamic options merging is pretty slow, and none of the
       // internal component options needs special treatment.
@@ -71,11 +72,12 @@ export function initMixin (Vue: Class<Component>) {
   }
 }
 
-export function initInternalComponent (vm: Component, options: InternalComponentOptions) {
-  const opts = vm.$options = Object.create(vm.constructor.options)
+export function initInternalComponent (vm: Component, options: InternalComponentOptions) { // 第一个参数 vm 是组件的子类构造器 Sub 的实例
+  const opts = vm.$options = Object.create(vm.constructor.options) // 为 Sub 实例生成新的 $options，下面的操作都是给 $options 加属性
   // doing this because it's faster than dynamic enumeration.
-  const parentVnode = options._parentVnode
-  opts.parent = options.parent
+  const parentVnode = options._parentVnode 
+  // 这个 options._parentVnode 就是 `src/core/vdom/create-comonent` 中组件hook的init方法中调用 createComponentInstanceForVnode 时传入的 vnode，也就是 占位符vnode
+  opts.parent = options.parent // 而这个options.parent 就是当前 vm实例
   opts._parentVnode = parentVnode
 
   const vnodeComponentOptions = parentVnode.componentOptions

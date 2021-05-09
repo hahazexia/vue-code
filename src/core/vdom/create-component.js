@@ -35,6 +35,8 @@ import {
 // inline hooks to be invoked on component VNodes during patch
 const componentVNodeHooks = { // 组件默认的钩子 init prepatch insert destroy
   init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
+    // `src/core/instance/lifecycle.js` _update 将 vnode 变成真实的 dom，_update 中会调用 __patch__，__patch__ 来自于 `src/core/vdom/patch` 中 createPatchFunction 返回的那个函数
+    // patch 调用的时候会判断如果是组件 vnode，就调用 vnode.data.hook.init，于是就走到了这里
     if (
       vnode.componentInstance &&
       !vnode.componentInstance._isDestroyed &&
@@ -48,6 +50,8 @@ const componentVNodeHooks = { // 组件默认的钩子 init prepatch insert dest
         vnode,
         activeInstance
       )
+      // createComponentInstanceForVnode 方法接收了 组件vnode 和 activeInstance，返回了一个 componentInstance，由 Sub 构造，也就是子组件实例，继承自 Vue
+      // 然后下面手动调用 $mount
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
@@ -214,10 +218,10 @@ export function createComponent (
 export function createComponentInstanceForVnode (
   vnode: any, // we know it's MountedComponentVNode but flow doesn't
   parent: any, // activeInstance in lifecycle state
-): Component {
+): Component { // 第一个参数是 组件vnode，作为占位符 vnode，第二个参数其实是当前vm实例，也就是现在要创建的组件的父组件
   const options: InternalComponentOptions = {
     _isComponent: true,
-    _parentVnode: vnode,
+    _parentVnode: vnode, // 占位符vnode
     parent
   }
   // check inline-template render functions
@@ -226,7 +230,8 @@ export function createComponentInstanceForVnode (
     options.render = inlineTemplate.render
     options.staticRenderFns = inlineTemplate.staticRenderFns
   }
-  return new vnode.componentOptions.Ctor(options)
+  return new vnode.componentOptions.Ctor(options) 
+  // 返回的其实是 组件vnode 当初创建的时候生成的子类构造函数构造出的实例，也就是子组件实例
 }
 
 function installComponentHooks (data: VNodeData) { // 初始化组件默认的钩子
