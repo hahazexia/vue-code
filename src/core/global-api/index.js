@@ -51,10 +51,11 @@ export function initGlobalAPI (Vue: GlobalAPI) {
     return obj
   }
 
-  Vue.options = Object.create(null)
+  Vue.options = Object.create(null) // Vue.options 一开始是个空对象
   ASSET_TYPES.forEach(type => {
     Vue.options[type + 's'] = Object.create(null)
   })
+  // 'components','directives','filters' 添加到 Vue.options 上
 
   // this is used to identify the "base" constructor to extend all plain-object
   // components with in Weex's multi-instance scenarios.

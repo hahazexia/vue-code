@@ -146,14 +146,14 @@ strats.data = function (
 function mergeHook (
   parentVal: ?Array<Function>,
   childVal: ?Function | ?Array<Function>
-): ?Array<Function> {
+): ?Array<Function> { // 生命周期的合并，最后会返回一个数组
   const res = childVal
     ? parentVal
-      ? parentVal.concat(childVal)
-      : Array.isArray(childVal)
+      ? parentVal.concat(childVal) // 子和父都定义了就把子和父连接成数组
+      : Array.isArray(childVal) // 子定义了就看父，如果父没有定义，就判断子是不是数组，如果是数组直接返回，如果不是数组就变成一个数组
         ? childVal
         : [childVal]
-    : parentVal
+    : parentVal // 子没有定义，直接取父
   return res
     ? dedupeHooks(res)
     : res
@@ -169,7 +169,7 @@ function dedupeHooks (hooks) {
   return res
 }
 
-LIFECYCLE_HOOKS.forEach(hook => {
+LIFECYCLE_HOOKS.forEach(hook => { // LIFECYCLE_HOOKS 是生命周期字符串组成的数组
   strats[hook] = mergeHook
 })
 
@@ -261,7 +261,7 @@ strats.provide = mergeDataOrFn
 /**
  * Default strategy.
  */
-const defaultStrat = function (parentVal: any, childVal: any): any {
+const defaultStrat = function (parentVal: any, childVal: any): any { // 默认的合并策略
   return childVal === undefined
     ? parentVal
     : childVal
@@ -407,6 +407,7 @@ export function mergeOptions (
   // the result of another mergeOptions call.
   // Only merged options has the _base property.
   if (!child._base) {
+    // 循环 child 的 extends 和 mixins 属性，将其中的 option 调用 mergeOptions 合并入 parent
     if (child.extends) {
       parent = mergeOptions(parent, child.extends, vm)
     }
@@ -419,16 +420,18 @@ export function mergeOptions (
 
   const options = {}
   let key
-  for (key in parent) {
+  for (key in parent) { // 遍历 parent ，调用 mergeField 将 parent 中 option 合并到 options 变量中
     mergeField(key)
   }
-  for (key in child) {
+  for (key in child) { // 遍历 child ，如果 parent 没有这个 key，调用 mergeField 将其合并到 options 变量中
     if (!hasOwn(parent, key)) {
       mergeField(key)
     }
   }
   function mergeField (key) {
     const strat = strats[key] || defaultStrat
+    // 通过不同的 key 拿到不同的 strats 函数
+    // strats 是对各种不同的 option 定义了对应的合并策略
     options[key] = strat(parent[key], child[key], vm, key)
   }
   return options

@@ -38,9 +38,10 @@ export function initMixin (Vue: Class<Component>) {
     } else {
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
-        options || {},
+        options || {}, // 用户 new Vue 的时候传入的 options
         vm
       )
+      // 第一次 new Vue 的时候会调用 mergeOptions 合并配置
     }
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') { // 如果是生产环境，vm._renderProxy 就是 vm，开发环境 _renderProxy 是一个 proxy 对象
@@ -75,7 +76,7 @@ export function initMixin (Vue: Class<Component>) {
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) { // 第一个参数 vm 是组件的子类构造器 Sub 的实例
   const opts = vm.$options = Object.create(vm.constructor.options) // 为 Sub 实例生成新的 $options，下面的操作都是给 $options 加属性
   // doing this because it's faster than dynamic enumeration.
-  const parentVnode = options._parentVnode 
+  const parentVnode = options._parentVnode
   // 这个 options._parentVnode 就是 `src/core/vdom/create-comonent` 中组件hook的init方法中调用 createComponentInstanceForVnode 时传入的 vnode，也就是 占位符vnode
   opts.parent = options.parent // 而这个options.parent 就是当前 vm实例
   opts._parentVnode = parentVnode
@@ -94,7 +95,7 @@ export function initInternalComponent (vm: Component, options: InternalComponent
 
 export function resolveConstructorOptions (Ctor: Class<Component>) {
   let options = Ctor.options
-  if (Ctor.super) {
+  if (Ctor.super) { // 当 Ctor 是 Vue 的时候，不会走这里逻辑
     const superOptions = resolveConstructorOptions(Ctor.super)
     const cachedSuperOptions = Ctor.superOptions
     if (superOptions !== cachedSuperOptions) {
