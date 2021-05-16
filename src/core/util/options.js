@@ -454,11 +454,11 @@ export function resolveAsset (
   }
   const assets = options[type]
   // check local registration variations first
-  if (hasOwn(assets, id)) return assets[id]
-  const camelizedId = camelize(id)
-  if (hasOwn(assets, camelizedId)) return assets[camelizedId]
-  const PascalCaseId = capitalize(camelizedId)
-  if (hasOwn(assets, PascalCaseId)) return assets[PascalCaseId]
+  if (hasOwn(assets, id)) return assets[id] // 如果options[type][id] 存在直接返回
+  const camelizedId = camelize(id) // camelize('aa-bb-cc') "aaBbCc" 把连字符写法转换成驼峰写法
+  if (hasOwn(assets, camelizedId)) return assets[camelizedId] // 用驼峰写法继续找options[type][id] 是否存在
+  const PascalCaseId = capitalize(camelizedId) // 首字母大写的驼峰写法
+  if (hasOwn(assets, PascalCaseId)) return assets[PascalCaseId] // 首字母大写的驼峰写法是否存在
   // fallback to prototype chain
   const res = assets[id] || assets[camelizedId] || assets[PascalCaseId]
   if (process.env.NODE_ENV !== 'production' && warnMissing && !res) {

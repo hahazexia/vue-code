@@ -167,6 +167,8 @@ const camelizeRE = /-(\w)/g
 export const camelize = cached((str: string): string => {
   return str.replace(camelizeRE, (_, c) => c ? c.toUpperCase() : '')
 })
+// camelize('aa-bb-cc') "aaBbCc" 把连字符写法转换成驼峰写法
+
 
 /**
  * Capitalize a string.
