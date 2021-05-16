@@ -88,7 +88,7 @@ function flushSchedulerQueue () {
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index]
     if (watcher.before) {
-      watcher.before()
+      watcher.before()  // 触发 beforeUpdate 生命周期
     }
     id = watcher.id
     has[id] = null
@@ -118,7 +118,7 @@ function flushSchedulerQueue () {
 
   // call component updated and activated hooks
   callActivatedHooks(activatedQueue)
-  callUpdatedHooks(updatedQueue)
+  callUpdatedHooks(updatedQueue) // 触发 updated 生命周期
 
   // devtool hook
   /* istanbul ignore if */
