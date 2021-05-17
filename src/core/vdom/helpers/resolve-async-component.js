@@ -15,16 +15,17 @@ import {
 import { createEmptyVNode } from 'core/vdom/vnode'
 import { currentRenderingInstance } from 'core/instance/render'
 
-function ensureCtor (comp: any, base) {
+function ensureCtor (comp: any, base) { // 从工厂函数调用 resolve 传回的 res 中提取出组件对象，因为 res 可能是 commonjs 引入也有可能是 import 引入
   if (
     comp.__esModule ||
     (hasSymbol && comp[Symbol.toStringTag] === 'Module')
-  ) {
+  ) { // es6 模块语法
     comp = comp.default
   }
   return isObject(comp)
     ? base.extend(comp)
     : comp
+    // 如果是个对象，直接调用 Vue.extend 生成子组件 Sub 构造函数返回，否则直接返回
 }
 
 export function createAsyncPlaceholder (
@@ -33,7 +34,7 @@ export function createAsyncPlaceholder (
   context: Component,
   children: ?Array<VNode>,
   tag: ?string
-): VNode {
+): VNode { // 创建一个空 vnode 保存工厂函数和一些元信息
   const node = createEmptyVNode()
   node.asyncFactory = factory
   node.asyncMeta = { data, context, children, tag }
@@ -48,7 +49,7 @@ export function resolveAsyncComponent (
     return factory.errorComp
   }
 
-  if (isDef(factory.resolved)) {
+  if (isDef(factory.resolved)) { // forceRender 后第二次走到这里已经有 factory.resolved 了，直接返回
     return factory.resolved
   }
 
@@ -72,6 +73,7 @@ export function resolveAsyncComponent (
 
     const forceRender = (renderCompleted: boolean) => {
       for (let i = 0, l = owners.length; i < l; i++) {
+        //遍历 owners ，调用实例的 $forceUpdate 强制重新渲染当前实例，然后就又会走到 _render ==> createElement ==> createComponent, 然后走到 resolveAsyncComponent 方法，这时候第二次就已经有 factory.resolved 了，直接返回，作为这个异步组件的构造器去生成对应的 vnode，然后当 vnode patch 的时候生成实例，然后生成 dom
         (owners[i]: any).$forceUpdate()
       }
 
@@ -89,11 +91,15 @@ export function resolveAsyncComponent (
     }
 
     const resolve = once((res: Object | Class<Component>) => {
+      // 当工厂函数被调用后，过了一段时间（因为是异步的）resolve会被触发
+
       // cache resolved
       factory.resolved = ensureCtor(res, baseCtor)
+      // res 就是工厂函数里调用 resolve 传入的组件对象，利用 ensureCtor 处理一下，拿到组件的构造函数，存到 factory.resolved 上
       // invoke callbacks only if this is not a synchronous resolve
       // (async resolves are shimmed as synchronous during SSR)
-      if (!sync) {
+      if (!sync) { // 这里开关已经变成 false 了，因为下面的同步代码已经改变这个变量了
+        // 调用 forceRender
         forceRender(true)
       } else {
         owners.length = 0
@@ -111,7 +117,10 @@ export function resolveAsyncComponent (
       }
     })
 
+    // resolve 和 reject 都用 once 处理过，once 使用闭包保证这个被处理的函数只能被调用一次
+    // 工厂函数中的 resolve 和 reject 只能被调用一次
     const res = factory(resolve, reject)
+    // 调用 factory ，也就是用 Vue.component 注册异步组件时传入的 工厂函数
 
     if (isObject(res)) {
       if (isPromise(res)) {
@@ -158,6 +167,7 @@ export function resolveAsyncComponent (
 
     sync = false
     // return in case resolved synchronously
+    // 第一次同步代码返回了 undefined
     return factory.loading
       ? factory.loadingComp
       : factory.resolved
