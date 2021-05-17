@@ -122,8 +122,10 @@ export function resolveAsyncComponent (
     const res = factory(resolve, reject)
     // 调用 factory ，也就是用 Vue.component 注册异步组件时传入的 工厂函数
 
+    // 如果使用的是返回一个 promise 的形式，就回来处理 res 返回值
     if (isObject(res)) {
       if (isPromise(res)) {
+        // 如果 res 是个 promise，那么调用它的 then，传入 resolve 和 reject 处理，之后 resolve 逻辑和工厂函数模式一样
         // () => Promise
         if (isUndef(factory.resolved)) {
           res.then(resolve, reject)

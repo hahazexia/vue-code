@@ -143,6 +143,8 @@ export function createComponent (
     // 工厂函数调用后会resolve传回组件对象，然后会调用 forceRender 去调用实例的 $forceUpdate 强制重新渲染当前实例，然后就又会走到 _render ==> createElement ==> createComponent, 然后第二次走到这里的 resolveAsyncComponent 方法，这时候第二次就已经有 factory.resolved 了，直接返回，作为这个异步组件的构造器去生成对应的 vnode，然后当 vnode patch 的时候生成实例，然后生成 dom
     if (Ctor === undefined) {
       // 第一次返回 undefined 就调用 createAsyncPlaceholder 生成一个占位符 vnode 渲染为一个注释节点，将工厂函数和元数据保存下来
+      // 等到 forceRender 触发当前组件的 $forceUpdate 去重新渲染时，就回拿到缓存好的异步组件的 构造器，然后继续后续流程
+
       // return a placeholder node for async component, which is rendered
       // as a comment node but preserves all the raw information for the node.
       // the information will be used for async server-rendering and hydration.
