@@ -45,7 +45,7 @@ export function resolveAsyncComponent (
   factory: Function,
   baseCtor: Class<Component>
 ): Class<Component> | void {
-  if (isTrue(factory.error) && isDef(factory.errorComp)) {
+  if (isTrue(factory.error) && isDef(factory.errorComp)) { // 如果 factory.error 标记开启了，并且有 error 组件，那么返回 error 组件去渲染
     return factory.errorComp
   }
 
@@ -59,7 +59,7 @@ export function resolveAsyncComponent (
     factory.owners.push(owner)
   }
 
-  if (isTrue(factory.loading) && isDef(factory.loadingComp)) {
+  if (isTrue(factory.loading) && isDef(factory.loadingComp)) { // 如果 loading 标记开启，返回 loading 组件去渲染
     return factory.loadingComp
   }
 
@@ -111,7 +111,7 @@ export function resolveAsyncComponent (
         `Failed to resolve async component: ${String(factory)}` +
         (reason ? `\nReason: ${reason}` : '')
       )
-      if (isDef(factory.errorComp)) {
+      if (isDef(factory.errorComp)) { // 如果定义了 error 组件，factory.error 开启，然后调用 forceRender 重新渲染
         factory.error = true
         forceRender(true)
       }
@@ -130,18 +130,19 @@ export function resolveAsyncComponent (
         if (isUndef(factory.resolved)) {
           res.then(resolve, reject)
         }
-      } else if (isPromise(res.component)) {
-        res.component.then(resolve, reject)
+      } else if (isPromise(res.component)) { // 高级异步组件返回的对象中的 componnet 属性是import()引入的组件，是个 promise
+        res.component.then(resolve, reject) // 调用它的then，传入 resolve 和 reject 处理，之后 resolve 逻辑和工厂函数模式一样
 
-        if (isDef(res.error)) {
+        if (isDef(res.error)) { // 如果传递了 error 组件，就调用 ensureCtor 将其转化成一个构造器，然后存在 factory.errorComp 上
           factory.errorComp = ensureCtor(res.error, baseCtor)
         }
 
         if (isDef(res.loading)) {
           factory.loadingComp = ensureCtor(res.loading, baseCtor)
-          if (res.delay === 0) {
+          // 如果传递了 loading 组件，调用 ensureCtor 将其转化成构造器，存在 factory.loadingComp 上
+          if (res.delay === 0) { // 如果 loading 组件延迟显示时间为 0，就把  factory.loading 标记改成 true
             factory.loading = true
-          } else {
+          } else { // 否则就存下一个定时器，时间为传入的 delay 参数，等到 delay 时间过去后，修改 factory.loading 标记，然后触发 forceRender
             timerLoading = setTimeout(() => {
               timerLoading = null
               if (isUndef(factory.resolved) && isUndef(factory.error)) {
@@ -152,7 +153,7 @@ export function resolveAsyncComponent (
           }
         }
 
-        if (isDef(res.timeout)) {
+        if (isDef(res.timeout)) { // 如果提供了超时时间 timeout，存下超时时间定时器，timeout 时间过去后，如果factory.resolved 缓存的组件构造器还没有生成，调用 reject 方法
           timerTimeout = setTimeout(() => {
             timerTimeout = null
             if (isUndef(factory.resolved)) {
@@ -170,6 +171,7 @@ export function resolveAsyncComponent (
     sync = false
     // return in case resolved synchronously
     // 第一次同步代码返回了 undefined
+    // 如果loading 状态开启了，直接返回 loading 组件去渲染
     return factory.loading
       ? factory.loadingComp
       : factory.resolved
