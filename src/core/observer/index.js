@@ -34,17 +34,18 @@ export function toggleObserving (value: boolean) {
  * object's property keys into getter/setters that
  * collect dependencies and dispatch updates.
  */
-export class Observer {
+export class Observer { // 观察者类
   value: any;
   dep: Dep;
   vmCount: number; // number of vms that have this object as root $data
 
-  constructor (value: any) {
+  constructor (value: any) { // 存下 value
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
-    def(value, '__ob__', this)
-    if (Array.isArray(value)) {
+    def(value, '__ob__', this) //def 就是 Object.defineProperty，此处给 value 添加 __ob__ 属性，值就是当前 observer 实例
+    // 为什么这里要使用 Object.defineProperty 给 value 添加 __ob__ 属性，而不是直接赋值，因为如果value是对象，后面就会调用 walk 去遍历 value 所有的 key，如果直接添加 __ob__ 属性，那么 __ob__ 也会被遍历出来
+    if (Array.isArray(value)) { // 如果 value 是数组，就调用 observeArray 把value数组每个元素都使用 observe 处理成响应式的
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -52,7 +53,7 @@ export class Observer {
       }
       this.observeArray(value)
     } else {
-      this.walk(value)
+      this.walk(value) // 如果不是数组是对象，就调用 walk 遍历对象所有属性调用 defineReactive 变成响应式的
     }
   }
 
@@ -108,11 +109,13 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  * or the existing observer if the value already has one.
  */
 export function observe (value: any, asRootData: ?boolean): Observer | void {
-  if (!isObject(value) || value instanceof VNode) {
+  // observe 接收两个参数，value是想要响应式的对象，asRootData 标识它是否是一个根的data
+  if (!isObject(value) || value instanceof VNode) { // 如果 value 不是对象，或者是 vnode ，就不处理返回
     return
   }
   let ob: Observer | void
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
+    // 如果value已经有了 __ob__ 属性且是 Observer 实例就直接返回  value.__ob__
     ob = value.__ob__
   } else if (
     shouldObserve &&
@@ -121,6 +124,8 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     Object.isExtensible(value) &&
     !value._isVue
   ) {
+    // 判断 shouldObserve 开关，判断不是一个服务端渲染，判断 value 是一个数组或对象，判断value 是可扩展的，并且value不是Vue实例s
+    // 就value 传给 Observer 生成 observer 观察者实例返回
     ob = new Observer(value)
   }
   if (asRootData && ob) {
@@ -132,6 +137,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
 /**
  * Define a reactive property on an Object.
  */
+// 为对象定义一个响应式属性
 export function defineReactive (
   obj: Object,
   key: string,
@@ -141,19 +147,22 @@ export function defineReactive (
 ) {
   const dep = new Dep()
 
-  const property = Object.getOwnPropertyDescriptor(obj, key)
+  const property = Object.getOwnPropertyDescriptor(obj, key) // 拿到对象的属性的 descriptor ，如果这个属性不可配置，就不处理返回
   if (property && property.configurable === false) {
     return
   }
 
   // cater for pre-defined getter/setters
+  // 拿到对象属性的 getter 和 setter
   const getter = property && property.get
   const setter = property && property.set
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key]
   }
-
+ // 拿到 对象属性然后再次调用 observe 递归地去将下一层对象变成响应式的
   let childOb = !shallow && observe(val)
+
+  // 然后为对象属性设置 getter setter ，当获取和设置这个对象属性的时候就会触发 getter setter
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,

@@ -48,10 +48,10 @@ export function proxy (target: Object, sourceKey: string, key: string) {
 export function initState (vm: Component) {
   vm._watchers = []
   const opts = vm.$options
-  if (opts.props) initProps(vm, opts.props)
+  if (opts.props) initProps(vm, opts.props) // 初始化 props
   if (opts.methods) initMethods(vm, opts.methods)
   if (opts.data) {
-    initData(vm)
+    initData(vm) // 初始化 data
   } else {
     observe(vm._data = {}, true /* asRootData */)
   }
@@ -69,7 +69,7 @@ function initProps (vm: Component, propsOptions: Object) {
   const keys = vm.$options._propKeys = []
   const isRoot = !vm.$parent
   // root instance props should be converted
-  if (!isRoot) {
+  if (!isRoot) { // 根组件实例的 props 应该被 observe 处理，非根组件实例就会把 shouldObserve 变成 false
     toggleObserving(false)
   }
   for (const key in propsOptions) {
@@ -97,7 +97,7 @@ function initProps (vm: Component, propsOptions: Object) {
         }
       })
     } else {
-      defineReactive(props, key, value)
+      defineReactive(props, key, value) // 遍历 props 调用 defineReactive 把 props 中的key变成响应式的
     }
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
@@ -110,7 +110,7 @@ function initProps (vm: Component, propsOptions: Object) {
 }
 
 function initData (vm: Component) {
-  let data = vm.$options.data // 从 $options 上拿到 data 属性 
+  let data = vm.$options.data // 从 $options 上拿到 data 属性
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
