@@ -166,12 +166,15 @@ export function defineReactive (
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
-    get: function reactiveGetter () {
-      const value = getter ? getter.call(obj) : val
-      if (Dep.target) {
+    get: function reactiveGetter () { // 响应式对象触发 getter ，就是依赖收集的过程
+      const value = getter ? getter.call(obj) : val // 拿到原始的 getter 去调用拿到结果值，如果没有原始 getter 直接拿到对应值
+      if (Dep.target) { // 返回 值 之前判断当前渲染 wetcher
         dep.depend()
+        // 如果有 Dep.target （Dep.target 是当前 渲染 wetcher），就会去调用 watcher 的 addDep 方法
+        // addDep 将这个 dep 添加到当前渲染 watcher 的 newDeps 中，并将 dep.subs 数组中加入当前渲染 watcher
+        // 也就是说 addDep 就是将 dep 和 watcher 互相建立联系
         if (childOb) {
-          childOb.dep.depend()
+          childOb.dep.depend() // 数据的每一层的属性如果是对象，都会进行依赖收集，每一层属性对象都有自己的 dep，和当前渲染 watcher 建立联系
           if (Array.isArray(value)) {
             dependArray(value)
           }

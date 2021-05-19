@@ -77,6 +77,8 @@ export default class Watcher {
       : ''
     // parse expression for getter
     if (typeof expOrFn === 'function') {
+      // 渲染 watcher 传入的 expOrFn 就是 mountComponnet 里的 updateComponent 方法，用于调用 vm._update(vm._render(), hydrating)
+      // 如果是渲染 watcher ，就将 this.getter 设置为 updateComponent
       this.getter = expOrFn
     } else {
       this.getter = parsePath(expOrFn)
@@ -93,17 +95,20 @@ export default class Watcher {
     this.value = this.lazy
       ? undefined
       : this.get()
+      // 渲染 watcher 会调用 this.get() 方法
   }
 
   /**
    * Evaluate the getter, and re-collect dependencies.
    */
-  get () {
-    pushTarget(this)
+  get () { // 渲染 watcher 初始化实例的时候最后会调用 this.get()
+    pushTarget(this) // 调用 dep 文件中定义的 pushTarget，将当前渲染 watcher 推入栈中，并将 Dep.target 设置为当前 watcher，这个栈存储所有的 渲染 watcher
     let value
     const vm = this.vm
     try {
       value = this.getter.call(vm, vm)
+      // 接着触发 this.getter 也就是 updateComponent 去更新组件生成新的 dom
+      // 生成 dom 的过程中就会触发组件中 data 的 getter 然后去建立 dep 和 watcher 的联系，也就是依赖收集
     } catch (e) {
       if (this.user) {
         handleError(e, vm, `getter for watcher "${this.expression}"`)
@@ -116,7 +121,7 @@ export default class Watcher {
       if (this.deep) {
         traverse(value)
       }
-      popTarget()
+      popTarget() // updateComponent 执行完后，调用 dep 文件中定义的 popTarget，将当前渲染 watcher 出栈，Dep.target 设置为上一轮的 渲染 watcher
       this.cleanupDeps()
     }
     return value
@@ -139,6 +144,11 @@ export default class Watcher {
   /**
    * Clean up for dependency collection.
    */
+  // dep 对应的其实就是 data 中的数据
+  // dep 和 watcher 建立联系就是将 data 和 watcher 建立联系
+  // 每次生成 dom 的时候会触发 data 的 getter ，然后依赖收集将data对应的 dep 添加入临时数组 newDeps，dep.id 加入临时set newDepIds
+  // 如果某个dom节点因为 v-if 没有渲染，其中用到 data 数据就不会渲染，也就不会触发 watcher
+  // 因此每次 addDep 都添加到 newDep 中，当dom渲染执行结束后执行 cleanupDeps 去对比 newDeps 和 deps，如果 newDeps 中某个原来 Deps 中有的依赖没有了，说明dom不受这个 data 变量影响了，因此将此 dep.subs 中关联的 watcher 去除，以防这个 data 变量变化时会触发无用的 _update 操作
   cleanupDeps () {
     let i = this.deps.length
     while (i--) {
