@@ -1,17 +1,32 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <!-- <img alt="Vue logo" src="./assets/logo.png">
+    <HelloWorld msg="Welcome to Your Vue.js App"/> -->
+    <div v-if="show">{{a}}</div>
+    <div v-else>{{b}}</div>
+    <a href="javascript:;" @click="change">切换</a>
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+// import HelloWorld from './components/HelloWorld.vue'
 
 export default {
   name: 'App',
-  components: {
-    HelloWorld
+  // components: {
+  //   HelloWorld
+  // }
+  data () {
+    return {
+      show: true,
+      a: 111,
+      b: 222
+    }
+  },
+  methods: {
+    change () {
+      this.show = false;
+    }
   }
 }
 </script>

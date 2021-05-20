@@ -130,7 +130,7 @@ export default class Watcher {
   /**
    * Add a dependency to this directive.
    */
-  addDep (dep: Dep) {
+  addDep (dep: Dep) { // 将依赖收集到临时数组 newDepIds 和 newDeps 中， 并将当前 watcher 加入到 dep 的 subs 属性数组中
     const id = dep.id
     if (!this.newDepIds.has(id)) {
       this.newDepIds.add(id)
