@@ -25,7 +25,7 @@ export default {
   },
   methods: {
     change () {
-      this.show = false;
+      this.show = !this.show;
     }
   }
 }
