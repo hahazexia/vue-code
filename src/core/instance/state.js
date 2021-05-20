@@ -72,7 +72,7 @@ function initProps (vm: Component, propsOptions: Object) {
   if (!isRoot) { // 根组件实例的 props 应该被 observe 处理，非根组件实例就会把 shouldObserve 变成 false
     toggleObserving(false)
   }
-  for (const key in propsOptions) {
+  for (const key in propsOptions) { // 遍历 props 配置
     keys.push(key)
     const value = validateProp(key, propsOptions, propsData, vm)
     /* istanbul ignore else */
@@ -85,7 +85,7 @@ function initProps (vm: Component, propsOptions: Object) {
           vm
         )
       }
-      defineReactive(props, key, value, () => {
+      defineReactive(props, key, value, () => { // 用 defineReactive 把 props 中的值变成响应式的
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
             `Avoid mutating a prop directly since the value will be ` +
@@ -97,13 +97,13 @@ function initProps (vm: Component, propsOptions: Object) {
         }
       })
     } else {
-      defineReactive(props, key, value) // 遍历 props 调用 defineReactive 把 props 中的key变成响应式的
+      defineReactive(props, key, value) // 用 defineReactive 把 props 中的值变成响应式的
     }
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
     if (!(key in vm)) {
-      proxy(vm, `_props`, key)
+      proxy(vm, `_props`, key) // 使用 proxy 把对 props 的值的访问代理到 vm._props.xxx 上
     }
   }
   toggleObserving(true)
@@ -124,7 +124,7 @@ function initData (vm: Component) {
     )
   }
   // proxy data on instance
-  const keys = Object.keys(data) //获取到 data 上的 key
+  const keys = Object.keys(data) //获取到 data 上所有 key
   const props = vm.$options.props //获取 props
   const methods = vm.$options.methods // 获取 methods
   let i = keys.length
@@ -145,7 +145,7 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
-      proxy(vm, `_data`, key) // 为实例添加 _data 属性并添加 getter setter，使得可以直接从 this 上获取 data 中的值
+      proxy(vm, `_data`, key) // 为实例添加 key 属性，如果去获取 vm.key，就触发代理从 _data 上拿到 data 中的值
     }
   }
   // observe data
