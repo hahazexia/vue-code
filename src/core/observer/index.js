@@ -34,18 +34,21 @@ export function toggleObserving (value: boolean) {
  * object's property keys into getter/setters that
  * collect dependencies and dispatch updates.
  */
-export class Observer { // 观察者类
+// Observer 用于给对象属性添加 getter 和 setter，用于依赖收集和派发更新
+export class Observer {
   value: any;
   dep: Dep;
   vmCount: number; // number of vms that have this object as root $data
 
-  constructor (value: any) { // 存下 value
+  constructor (value: any) {
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
-    def(value, '__ob__', this) //def 就是 Object.defineProperty，此处给 value 添加 __ob__ 属性，值就是当前 observer 实例
+    def(value, '__ob__', this)
+    //def 就是 Object.defineProperty，此处给 value 添加 __ob__ 属性，值就是当前 observer 实例
     // 为什么这里要使用 Object.defineProperty 给 value 添加 __ob__ 属性，而不是直接赋值，因为如果value是对象，后面就会调用 walk 去遍历 value 所有的 key，如果直接添加 __ob__ 属性，那么 __ob__ 也会被遍历出来
-    if (Array.isArray(value)) { // 如果 value 是数组，就调用 observeArray 把value数组每个元素都使用 observe 处理成响应式的
+
+    if (Array.isArray(value)) { // 如果 value 是数组，就调用 observeArray 把value数组每个元素都使用 observe 处理
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -62,6 +65,7 @@ export class Observer { // 观察者类
    * getter/setters. This method should only be called when
    * value type is Object.
    */
+  // 遍历对象的所有属性，添加 getter 和 setter
   walk (obj: Object) {
     const keys = Object.keys(obj)
     for (let i = 0; i < keys.length; i++) {
@@ -72,6 +76,7 @@ export class Observer { // 观察者类
   /**
    * Observe a list of Array items.
    */
+  // 调用 observe 处理数组的每个元素
   observeArray (items: Array<any>) {
     for (let i = 0, l = items.length; i < l; i++) {
       observe(items[i])
@@ -110,7 +115,7 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  */
 export function observe (value: any, asRootData: ?boolean): Observer | void {
   // observe 接收两个参数，value是想要响应式的对象，asRootData 标识它是否是一个根的data
-  if (!isObject(value) || value instanceof VNode) { // 如果 value 不是对象，或者是 vnode ，就不处理返回
+  if (!isObject(value) || value instanceof VNode) { // 如果 value 不是对象，或者是 vnode 类型对象，就不处理返回
     return
   }
   let ob: Observer | void
@@ -125,7 +130,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     !value._isVue
   ) {
     // 判断 shouldObserve 开关，判断不是一个服务端渲染，判断 value 是一个数组或对象，判断value 是可扩展的，并且value不是Vue实例s
-    // 就value 传给 Observer 生成 observer 观察者实例返回
+    // 就value 传给 Observer 生成 observer 实例返回
     ob = new Observer(value)
   }
   if (asRootData && ob) {
@@ -137,7 +142,6 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
 /**
  * Define a reactive property on an Object.
  */
-// 为对象定义一个响应式属性
 export function defineReactive (
   obj: Object,
   key: string,
@@ -167,14 +171,11 @@ export function defineReactive (
     enumerable: true,
     configurable: true,
     get: function reactiveGetter () { // 响应式对象触发 getter ，就是依赖收集的过程
-      const value = getter ? getter.call(obj) : val // 拿到原始的 getter 去调用拿到结果值，如果没有原始 getter 直接拿到对应值
-      if (Dep.target) { // 返回 值 之前判断当前渲染 wetcher
+      const value = getter ? getter.call(obj) : val
+      if (Dep.target) {
         dep.depend()
-        // 如果有 Dep.target （Dep.target 是当前 渲染 wetcher），就会去调用 watcher 的 addDep 方法
-        // addDep 将这个 dep 添加到当前渲染 watcher 的 newDeps 中，并将 dep.subs 数组中加入当前渲染 watcher
-        // 也就是说 addDep 就是将 dep 和 watcher 互相建立联系
         if (childOb) {
-          childOb.dep.depend() // 数据的每一层的属性如果是对象，都会进行依赖收集，每一层属性对象都有自己的 dep，和当前渲染 watcher 建立联系
+          childOb.dep.depend()
           if (Array.isArray(value)) {
             dependArray(value)
           }
