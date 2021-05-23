@@ -42,7 +42,7 @@ export default class Dep {
       // subs aren't sorted in scheduler if not running async
       // we need to sort them now to make sure they fire in correct
       // order
-      subs.sort((a, b) => a.id - b.id)
+      subs.sort((a, b) => a.id - b.id)  // 升序排列
     }
     for (let i = 0, l = subs.length; i < l; i++) {
       subs[i].update()

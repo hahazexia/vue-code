@@ -184,9 +184,9 @@ export function defineReactive (
       return value
     },
     set: function reactiveSetter (newVal) {
-      const value = getter ? getter.call(obj) : val
+      const value = getter ? getter.call(obj) : val // 获取老值
       /* eslint-disable no-self-compare */
-      if (newVal === value || (newVal !== newVal && value !== value)) {
+      if (newVal === value || (newVal !== newVal && value !== value)) { // 没有发生变化不做处理
         return
       }
       /* eslint-enable no-self-compare */
@@ -200,8 +200,8 @@ export function defineReactive (
       } else {
         val = newVal
       }
-      childOb = !shallow && observe(newVal)
-      dep.notify()
+      childOb = !shallow && observe(newVal) // 如果 shallow 是 false ，就将新值变成响应式的
+      dep.notify() // 通知所有订阅者
     }
   })
 }
