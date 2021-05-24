@@ -20,7 +20,9 @@ export function initExtend (Vue: GlobalAPI) {
     extendOptions = extendOptions || {}
     const Super = this // 就是 Vue
     const SuperId = Super.cid
-    const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {}) // 将生成好的子类构造器缓存优化，下次传入同样的参数就不用再次生成了
+    const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
+    // 将生成好的子类构造器缓存优化，下次传入同样的参数就不用再次生成了
+
     if (cachedCtors[SuperId]) {
       return cachedCtors[SuperId]
     }

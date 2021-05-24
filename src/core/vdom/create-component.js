@@ -33,10 +33,8 @@ import {
 } from 'weex/runtime/recycle-list/render-component-template'
 
 // inline hooks to be invoked on component VNodes during patch
-const componentVNodeHooks = { // 组件默认的钩子 init prepatch insert destroy
+const componentVNodeHooks = { // 组件钩子 init prepatch insert destroy
   init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
-    // `src/core/instance/lifecycle.js` _update 将 vnode 变成真实的 dom，_update 中会调用 __patch__，__patch__ 来自于 `src/core/vdom/patch` 中 createPatchFunction 返回的那个函数
-    // patch 调用的时候会判断如果是组件 vnode，就调用 vnode.data.hook.init，于是就走到了这里
     if (
       vnode.componentInstance &&
       !vnode.componentInstance._isDestroyed &&
@@ -50,8 +48,6 @@ const componentVNodeHooks = { // 组件默认的钩子 init prepatch insert dest
         vnode,
         activeInstance
       )
-      // createComponentInstanceForVnode 方法接收了 组件vnode 和 activeInstance，返回了一个 componentInstance，由 Sub 构造，也就是子组件实例，继承自 Vue
-      // 然后下面手动调用 $mount
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
@@ -120,7 +116,7 @@ export function createComponent (
 
 
   // plain options object: turn it into a constructor
-  if (isObject(Ctor)) { // 如果 Ctor 是个对象，就调用 Vue.extend() 对于这个组件创建一个继承自 Vue 的子构造器。Vue.extend 定义在 src/core/global-api/extend 中
+  if (isObject(Ctor)) { // 如果 Ctor 是个对象，构造⼦类构造函数。Vue.extend 定义在 src/core/global-api/extend 中
     Ctor = baseCtor.extend(Ctor)
   }
 
@@ -139,11 +135,7 @@ export function createComponent (
   if (isUndef(Ctor.cid)) {
     asyncFactory = Ctor
     Ctor = resolveAsyncComponent(asyncFactory, baseCtor)
-    // resolveAsyncComponent 第一次执行会返回 undefined，因为工厂函数 asyncFactory 中的操作是异步的
-    // 工厂函数调用后会resolve传回组件对象，然后会调用 forceRender 去调用实例的 $forceUpdate 强制重新渲染当前实例，然后就又会走到 _render ==> createElement ==> createComponent, 然后第二次走到这里的 resolveAsyncComponent 方法，这时候第二次就已经有 factory.resolved 了，直接返回，作为这个异步组件的构造器去生成对应的 vnode，然后当 vnode patch 的时候生成实例，然后生成 dom
     if (Ctor === undefined) {
-      // 第一次返回 undefined 就调用 createAsyncPlaceholder 生成一个占位符 vnode 渲染为一个注释节点，将工厂函数和元数据保存下来
-      // 等到 forceRender 触发当前组件的 $forceUpdate 去重新渲染时，就回拿到缓存好的异步组件的 构造器，然后继续后续流程
 
       // return a placeholder node for async component, which is rendered
       // as a comment node but preserves all the raw information for the node.
@@ -197,8 +189,7 @@ export function createComponent (
   }
 
   // install component management hooks onto the placeholder node
-  // 安装组件钩子
-  installComponentHooks(data)
+  installComponentHooks(data) // 安装组件钩⼦函数
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
@@ -207,8 +198,7 @@ export function createComponent (
     data, undefined, undefined, undefined, context,
     { Ctor, propsData, listeners, tag, children },
     asyncFactory
-  )
-  // 生成 vnode。component 的 vnode 和普通 vnode 不一样，第三个参数 children 是 undefined。也就是说 component 对应的 vnode 的 children 是空。但是它有 componentOptions 是一个对象，里面有 children
+  ) // 实例化 vnode
 
   // Weex specific: invoke recycle-list optimized @render function for
   // extracting cell-slot template.
@@ -240,13 +230,14 @@ export function createComponentInstanceForVnode (
   // 返回的其实是 组件vnode 当初创建的时候生成的子类构造函数构造出的实例，也就是子组件实例
 }
 
-function installComponentHooks (data: VNodeData) { // 初始化组件默认的钩子
+function installComponentHooks (data: VNodeData) { // 初始化组件钩子
   const hooks = data.hook || (data.hook = {})
   for (let i = 0; i < hooksToMerge.length; i++) { // 遍历四个钩子 init prepatch insert destroy
     const key = hooksToMerge[i]
     const existing = hooks[key]
     const toMerge = componentVNodeHooks[key]
-    if (existing !== toMerge && !(existing && existing._merged)) { // 将 VnodeData 的 hook 也就是用户自定义的 hook 和 vnode 默认的 hook 合并，钩子触发后会依次执行
+    if (existing !== toMerge && !(existing && existing._merged)) {
+      // 将 VnodeData 的 hook 也就是用户自定义的 hook 和 vnode 默认的 hook 合并，钩子触发后会依次执行
       hooks[key] = existing ? mergeHook(toMerge, existing) : toMerge
     }
   }

@@ -33,7 +33,7 @@ export function createElement (
   normalizationType: any,
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
-  // 创建 vnode 
+  // 创建 vnode
   if (Array.isArray(data) || isPrimitive(data)) {
     // 参数移位，因为 data 参数可以省略
     normalizationType = children
@@ -96,7 +96,7 @@ export function _createElement (
     children = simpleNormalizeChildren(children)
   }
   let vnode, ns
-  if (typeof tag === 'string') { // 如果 tag 是字符串, 就new 一个 vnode
+  if (typeof tag === 'string') { // 如果 tag 是普通的 html 标签, 就新建一个 vnode
     let Ctor
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
     if (config.isReservedTag(tag)) {
