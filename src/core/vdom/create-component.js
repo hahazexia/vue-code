@@ -214,10 +214,10 @@ export function createComponent (
 export function createComponentInstanceForVnode (
   vnode: any, // we know it's MountedComponentVNode but flow doesn't
   parent: any, // activeInstance in lifecycle state
-): Component { // 第一个参数是 组件vnode，作为占位符 vnode，第二个参数其实是当前vm实例，也就是现在要创建的组件的父组件
+): Component {
   const options: InternalComponentOptions = {
-    _isComponent: true,
-    _parentVnode: vnode, // 占位符vnode
+    _isComponent: true, // 表明是一个组件
+    _parentVnode: vnode,
     parent
   }
   // check inline-template render functions
@@ -226,8 +226,7 @@ export function createComponentInstanceForVnode (
     options.render = inlineTemplate.render
     options.staticRenderFns = inlineTemplate.staticRenderFns
   }
-  return new vnode.componentOptions.Ctor(options)
-  // 返回的其实是 组件vnode 当初创建的时候生成的子类构造函数构造出的实例，也就是子组件实例
+  return new vnode.componentOptions.Ctor(options) // 子组件实例
 }
 
 function installComponentHooks (data: VNodeData) { // 初始化组件钩子
