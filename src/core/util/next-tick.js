@@ -8,9 +8,9 @@ import { isIE, isIOS, isNative } from './env'
 export let isUsingMicroTask = false
 
 const callbacks = []
-let pending = false
+let pending = false // 当前 callbacks 是否正在执行
 
-function flushCallbacks () {
+function flushCallbacks () { // 执行所有 callbacks
   pending = false
   const copies = callbacks.slice(0)
   callbacks.length = 0
@@ -86,23 +86,23 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
-  callbacks.push(() => {
+  callbacks.push(() => { // 将传入的 cb 生成一个调用它的函数加入到 callbacks 数组里
     if (cb) {
       try {
         cb.call(ctx)
       } catch (e) {
         handleError(e, ctx, 'nextTick')
       }
-    } else if (_resolve) {
+    } else if (_resolve) { // 如果 cb 不是函数，说明是 nextTick().then(() => {}) 的调用形式，调用 _resolve 触发之后的 then 执行
       _resolve(ctx)
     }
   })
   if (!pending) {
     pending = true
-    timerFunc()
+    timerFunc() // callbacks 收集完后触发 timerFunc，timerFunc 会在下一次微任务队列执行的时候触发去执行所有 callbacks
   }
   // $flow-disable-line
-  if (!cb && typeof Promise !== 'undefined') {
+  if (!cb && typeof Promise !== 'undefined') { // 没有 cb 生成 promise 存下 resolve 供给 callbacks 中的回调去触发 then 执行
     return new Promise(resolve => {
       _resolve = resolve
     })
