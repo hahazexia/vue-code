@@ -35,6 +35,10 @@ export default {
   name: 'HelloWorld',
   props: {
     msg: String
+  },
+  mounted () {
+    console.log(this, 'HelloWorld')
+    console.log(this.$parent, '$parent')
   }
 }
 </script>

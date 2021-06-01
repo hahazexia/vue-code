@@ -77,6 +77,7 @@ export function initInternalComponent (vm: Component, options: InternalComponent
   // doing this because it's faster than dynamic enumeration.
   const parentVnode = options._parentVnode
   opts.parent = options.parent
+  // 这里的 options.parent 是组件 init 钩子函数中调用 createComponentInstanceForVnode 时初始化子组件传入的参数，传入的是 activeInstance，也就是当前激活的Vue实例，也就是占位符实例
   opts._parentVnode = parentVnode
 
   const vnodeComponentOptions = parentVnode.componentOptions

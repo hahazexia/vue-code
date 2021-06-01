@@ -60,7 +60,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     const vm: Component = this
     const prevEl = vm.$el
     const prevVnode = vm._vnode
-    const restoreActiveInstance = setActiveInstance(vm) // 为全局变量 activeInstance 赋值
+    const restoreActiveInstance = setActiveInstance(vm) // activeInstance 保存当前上下⽂的 Vue 实例
     vm._vnode = vnode
     // 渲染vnode赋值给 _vnode
     // 渲染 vnode 也就是 _vnode 和 $vnode 是一个父子关系，$vnode（占位符vnode）是父级

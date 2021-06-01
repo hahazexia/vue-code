@@ -1,32 +1,20 @@
 <template>
-  <div id="app">
-    <!-- <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/> -->
-    <div v-if="show">{{a}}</div>
-    <div v-else>{{b}}</div>
-    <a href="javascript:;" @click="change">切换</a>
+  <div id="app1">
+    <img alt="Vue logo" src="./assets/logo.png">
+    <HelloWorld msg="Welcome to Your Vue.js App"/>
   </div>
 </template>
 
 <script>
-// import HelloWorld from './components/HelloWorld.vue'
+import HelloWorld from './components/HelloWorld.vue'
 
 export default {
   name: 'App',
-  // components: {
-  //   HelloWorld
-  // }
-  data () {
-    return {
-      show: true,
-      a: 111,
-      b: 222
-    }
+  components: {
+    HelloWorld
   },
-  methods: {
-    change () {
-      this.show = !this.show;
-    }
+  mounted () {
+    console.log(this, 'App')
   }
 }
 </script>
