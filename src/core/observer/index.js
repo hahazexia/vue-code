@@ -90,7 +90,7 @@ export class Observer {
  * Augment a target Object or Array by intercepting
  * the prototype chain using __proto__
  */
-function protoAugment (target, src: Object) {
+function protoAugment (target, src: Object) { // 使用 __proto__ 直接改变数组的原型
   /* eslint-disable no-proto */
   target.__proto__ = src
   /* eslint-enable no-proto */
@@ -101,7 +101,7 @@ function protoAugment (target, src: Object) {
  * hidden properties.
  */
 /* istanbul ignore next */
-function copyAugment (target: Object, src: Object, keys: Array<string>) {
+function copyAugment (target: Object, src: Object, keys: Array<string>) { // 遍历变异好的数组方法用Object.defineProperty定义到数组上
   for (let i = 0, l = keys.length; i < l; i++) {
     const key = keys[i]
     def(target, key, src[key])
@@ -211,22 +211,23 @@ export function defineReactive (
  * triggers change notification if the property doesn't
  * already exist.
  */
-export function set (target: Array<any> | Object, key: any, val: any): any {
+export function set (target: Array<any> | Object, key: any, val: any): any { // Vue.set()
+  // target 可能是数组或者是普通对象， key 代表的是数组的下标或者是对象的键值， val 代表添加的值
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
-  ) {
+  ) { // target 必须是对象或者数组
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
-  if (Array.isArray(target) && isValidArrayIndex(key)) {
-    target.length = Math.max(target.length, key)
-    target.splice(key, 1, val)
+  if (Array.isArray(target) && isValidArrayIndex(key)) { // 数组 key 是否合法
+    target.length = Math.max(target.length, key) // 扩展数组长度
+    target.splice(key, 1, val) // 插入新值
     return val
   }
-  if (key in target && !(key in Object.prototype)) {
+  if (key in target && !(key in Object.prototype)) { // 如果 key 已经存在了，就赋值后直接返回 val
     target[key] = val
     return val
   }
-  const ob = (target: any).__ob__
+  const ob = (target: any).__ob__ // 获取到 target 对象的 __ob__ 属性（Observer 实例）
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -234,12 +235,12 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     )
     return val
   }
-  if (!ob) {
+  if (!ob) { // 如果 __ob__ 不存在，说明 target 不是一个响应式对象，直接赋值然后返回
     target[key] = val
     return val
   }
-  defineReactive(ob.value, key, val)
-  ob.dep.notify()
+  defineReactive(ob.value, key, val) // 如果是响应式对象，把新添加的属性变成响应式对象
+  ob.dep.notify() // 手动触发更新
   return val
 }
 
