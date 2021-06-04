@@ -16,7 +16,7 @@ export function traverse (val: any) {
   seenObjects.clear()
 }
 
-function _traverse (val: any, seen: SimpleSet) {
+function _traverse (val: any, seen: SimpleSet) { // 触发深层属性的 getter ，将收集到当前 user watcher 的依赖
   let i, keys
   const isA = Array.isArray(val)
   if ((!isA && !isObject(val)) || Object.isFrozen(val) || val instanceof VNode) {

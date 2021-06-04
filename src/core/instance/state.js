@@ -291,10 +291,10 @@ function initMethods (vm: Component, methods: Object) {
   }
 }
 
-function initWatch (vm: Component, watch: Object) {
+function initWatch (vm: Component, watch: Object) { // 初始化 watch
   for (const key in watch) {
     const handler = watch[key]
-    if (Array.isArray(handler)) {
+    if (Array.isArray(handler)) { // watch 的同⼀个 key对应多个 handler，handler 就会是一个数组
       for (let i = 0; i < handler.length; i++) {
         createWatcher(vm, key, handler[i])
       }
@@ -317,6 +317,7 @@ function createWatcher (
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
+  // 根据不同的 handler 类型拿到最终的回调函数，然后调用 $watch
   return vm.$watch(expOrFn, handler, options)
 }
 
@@ -354,18 +355,19 @@ export function stateMixin (Vue: Class<Component>) {
     const vm: Component = this
     if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options)
+      // cb 如果是⼀个对象，则调⽤ createWatcher ⽅法，因为 $watch ⽅法是⽤户可以直接调⽤的，它可以传递⼀个对象，也可以传递函数
     }
     options = options || {}
     options.user = true
-    const watcher = new Watcher(vm, expOrFn, cb, options)
-    if (options.immediate) {
+    const watcher = new Watcher(vm, expOrFn, cb, options) // 实例化一个 user watcher
+    if (options.immediate) { // 设置了 immediate 为 true，则直接会执⾏回调函数cb
       try {
         cb.call(vm, watcher.value)
       } catch (error) {
         handleError(error, vm, `callback for immediate watcher "${watcher.expression}"`)
       }
     }
-    return function unwatchFn () {
+    return function unwatchFn () { // 返回一个函数用于移除自定义 watcher
       watcher.teardown()
     }
   }
