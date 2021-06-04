@@ -99,11 +99,13 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
-    pushTarget(this) // 把 Dep.target 赋值为当前的渲染 watcher 并压栈
+    pushTarget(this) // 把 Dep.target 赋值为当前的 watcher 并压栈
     let value
     const vm = this.vm
     try {
-      value = this.getter.call(vm, vm) // vm._update(vm._render(), hydrating)
+      value = this.getter.call(vm, vm)
+      // 渲染 watcher 这里调用的是 vm._update(vm._render(), hydrating)
+      // computed watcher 这里调用的是用户定义的 computed key 对应的函数
     } catch (e) {
       if (this.user) {
         handleError(e, vm, `getter for watcher "${this.expression}"`)
@@ -116,7 +118,7 @@ export default class Watcher {
       if (this.deep) {
         traverse(value)
       }
-      popTarget() // 把 Dep.target 恢复成上⼀个状态，因为当前 vm 的数据依赖收集已经完成
+      popTarget() // 把 Dep.target 恢复成上⼀个状态
       this.cleanupDeps()
     }
     return value

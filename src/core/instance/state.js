@@ -169,13 +169,13 @@ const computedWatcherOptions = { lazy: true }
 
 function initComputed (vm: Component, computed: Object) {
   // $flow-disable-line
-  const watchers = vm._computedWatchers = Object.create(null)
+  const watchers = vm._computedWatchers = Object.create(null) // vm._computedWatchers 上存放所有 computed 属性对应的 computed watcher
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
 
-  for (const key in computed) {
+  for (const key in computed) { // 拿到计算属性的每⼀个 userDef
     const userDef = computed[key]
-    const getter = typeof userDef === 'function' ? userDef : userDef.get
+    const getter = typeof userDef === 'function' ? userDef : userDef.get // 如果定义了一个对象就拿到它的 getter
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
         `Getter is missing for computed property "${key}".`,
@@ -185,6 +185,8 @@ function initComputed (vm: Component, computed: Object) {
 
     if (!isSSR) {
       // create internal watcher for the computed property.
+      // 接下来为每⼀个 getter 创建⼀个 computed watcher
+      // const computedWatcherOptions = { lazy: true } 这个参数和渲染watcher 不同
       watchers[key] = new Watcher(
         vm,
         getter || noop,
@@ -197,8 +199,8 @@ function initComputed (vm: Component, computed: Object) {
     // component prototype. We only need to define computed properties defined
     // at instantiation here.
     if (!(key in vm)) {
-      defineComputed(vm, key, userDef)
-    } else if (process.env.NODE_ENV !== 'production') {
+      defineComputed(vm, key, userDef) // 利⽤ Object.defineProperty 给计算属性对应的 key 值添加 getter 和 setter
+    } else if (process.env.NODE_ENV !== 'production') { // computed 的 key 和 data 还有 props 重复，报警告
       if (key in vm.$data) {
         warn(`The computed property "${key}" is already defined in data.`, vm)
       } else if (vm.$options.props && key in vm.$options.props) {
@@ -212,14 +214,14 @@ export function defineComputed (
   target: any,
   key: string,
   userDef: Object | Function
-) {
+) { // 给 vm 上定义 computed 的 key 属性的 getter 和 setter
   const shouldCache = !isServerRendering()
-  if (typeof userDef === 'function') {
+  if (typeof userDef === 'function') { // computed key 对应的值，常用的是 function 的形式
     sharedPropertyDefinition.get = shouldCache
       ? createComputedGetter(key)
       : createGetterInvoker(userDef)
     sharedPropertyDefinition.set = noop
-  } else {
+  } else { // computed key 对应的值是对象的时候才会去设置 setter
     sharedPropertyDefinition.get = userDef.get
       ? shouldCache && userDef.cache !== false
         ? createComputedGetter(key)
@@ -239,12 +241,13 @@ export function defineComputed (
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
-function createComputedGetter (key) {
+function createComputedGetter (key) { // 生成 computed key 的 getter
   return function computedGetter () {
-    const watcher = this._computedWatchers && this._computedWatchers[key]
+    const watcher = this._computedWatchers && this._computedWatchers[key] // 从 vm._computedWatchers 取到computed key 对应的 watcher
     if (watcher) {
       if (watcher.dirty) {
-        watcher.evaluate()
+        // 首次创建 computed watcher的时候传递的 computedWatcherOptions = { lazy: true }，lazy 赋值给了 watcher.dirty
+        watcher.evaluate() // watcher.evaluate() 会触发 this.value = this.get() 去计算 watcher.value，计算出结果后 watcher.dirty 变成 false
       }
       if (Dep.target) {
         watcher.depend()
