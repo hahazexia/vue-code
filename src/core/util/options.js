@@ -423,7 +423,7 @@ export function mergeOptions (
     }
   }
 
-  const options = {}
+  const options = {} // 最后 return 的结果
   let key
   for (key in parent) {// 遍历 父选项
     mergeField(key)
@@ -433,15 +433,15 @@ export function mergeOptions (
       mergeField(key)
     }
   }
-  
+
   // 合并选项，childVal 优先级高于 parentVal
   function mergeField (key) {
-    
+
     // strats = Object.create(null)
     const strat = strats[key] || defaultStrat
     // 通过不同的 key 拿到不同的 strats 函数
     // strats 是对各种不同的 option 定义了对应的合并策略
-    
+
     // 值为如果 childVal 存在则优先使用 childVal，否则使用 parentVal
     options[key] = strat(parent[key], child[key], vm, key)
   }

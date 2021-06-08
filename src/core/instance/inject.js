@@ -5,7 +5,7 @@ import { warn, hasSymbol } from '../util/index'
 import { defineReactive, toggleObserving } from '../observer/index'
 
 /**
- * 解析组件配置项上的 provide 对象，将其挂载到 vm._provided 属性上 
+ * 解析组件配置项上的 provide 对象，将其挂载到 vm._provided 属性上
  */
 export function initProvide (vm: Component) {
   const provide = vm.$options.provide
@@ -25,7 +25,7 @@ export function initInjections (vm: Component) {
   // 解析 inject 配置项，然后从祖代组件的配置中找到 配置项中每一个 key 对应的 val，最后得到 result[key] = val 的结果
   const result = resolveInject(vm.$options.inject, vm)
    // 对 result 做 数据响应式处理，也有代理 inject 配置中每个 key 到 vm 实例的作用。
-  // 不不建议在子组件去更改这些数据，因为一旦祖代组件中 注入的 provide 发生更改，你在组件中做的更改就会被覆盖
+  // 不建议在子组件去更改这些数据，因为一旦祖代组件中 注入的 provide 发生更改，你在组件中做的更改就会被覆盖
   if (result) {
     toggleObserving(false)
     Object.keys(result).forEach(key => {
@@ -40,6 +40,7 @@ export function initInjections (vm: Component) {
           )
         })
       } else {
+        // 对解析结果做响应式处理，将每个 key 代理到 vue 实例上
         defineReactive(vm, key, result[key])
       }
     })
@@ -61,25 +62,26 @@ export function resolveInject (inject: any, vm: Component): ?Object {
   if (inject) {
     // inject is :any because flow is not smart enough to figure out cached
     const result = Object.create(null)
-    
+
     // inject 配置项的所有的 key
     const keys = hasSymbol
       ? Reflect.ownKeys(inject)
       : Object.keys(inject)
-    // 遍历 key
+    // 遍历 inject 选项中 key 组成的数组
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
-      
+
       // 跳过 __ob__ 对象
       // #6574 in case the inject object is observed...
       if (key === '__ob__') continue
-      
+
       // 拿到 provide 中对应的 key
       const provideKey = inject[key].from
       let source = vm
       // 遍历所有的祖代组件，直到 根组件，找到 provide 中对应 key 的值，最后得到 result[key] = provide[provideKey]
       while (source) {
         if (source._provided && hasOwn(source._provided, provideKey)) {
+          // result[key] = val
           result[key] = source._provided[provideKey]
           break
         }

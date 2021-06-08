@@ -13,7 +13,7 @@ import { extend, mergeOptions, formatComponentName } from '../util/index'
 let uid = 0
 
 /**
- * 定义 Vue.prototype._init 方法 
+ * 定义 Vue.prototype._init 方法
  * @param {*} Vue Vue 构造函数
  */
 export function initMixin (Vue: Class<Component>) {
@@ -45,14 +45,18 @@ export function initMixin (Vue: Class<Component>) {
        * 每个子组件初始化时走这里，这里只做了一些性能优化
        * 将组件配置对象上的一些深层次属性放到 vm.$options 选项中，以提高代码的执行效率
        */
+      // 性能优化， 减少原型链的动态查找，提高执行效率
       initInternalComponent(vm, options)
     } else {
 
       /**
        * 初始化根组件时走这里，合并 Vue 的全局配置到根组件的局部配置，比如 Vue.component 注册的全局组件会合并到 根实例的 components 选项中
-       * 至于每个子组件的选项合并则发生在两个地方：
-       *   1、Vue.component 方法注册的全局组件在注册时做了选项合并
-       *   2、{ components: { xx } } 方式注册的局部组件在执行编译器生成的 render 函数时做了选项合并，包括根组件中的 components 配置
+       *
+       * 组件选项合并,发生在三个地方：
+       * 1. Vue.component(CompName, Comp) 做了选项合并，合并的 Vue 内置的全局组件和用户自己注册的全局组件，最终都会放到全局的 components 选项
+       * 2. {components: xxx} 局部注册，执行编译生成的 render 函数时做了选项合并，会合并全局配置项到组件局部配置项上
+       * 3. 这里的根组件的情况
+       *
        */
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
@@ -74,17 +78,20 @@ export function initMixin (Vue: Class<Component>) {
     initLifecycle(vm)
     /**
      * 初始化自定义事件，这里需要注意一点，所以我们在 <comp @click="handleClick" /> 上注册的事件，监听者不是父组件，
-     * 而是子组件本身，也就是说事件的派发和监听者都是子组件本身，和父组件无关
+     * 而是子组件本身，也就是说事件的派发和监听者都是子组件本身，和父组件无关。最后触发和监听会变成 this.$emit() 和 this.$on() 的形式
      */
     initEvents(vm)
-    initRender(vm) // 解析组件的插槽信息，得到 vm.$slot，处理渲染函数，得到 vm.$createElement 方法，即 h 函数
-    callHook(vm, 'beforeCreate') // 调用 beforeCreate 钩子函数
+    // 1. 解析组件的插槽信息，得到 vm.$slot，2. 处理渲染函数，定义 this._c  就是 createElement 方法，即 h 函数
+    initRender(vm)
+    callHook(vm, 'beforeCreate') // 调用 beforeCreate 生命周期函数
     // 初始化组件的 inject 配置项，得到 result[key] = val 形式的配置对象，然后对结果数据进行响应式处理，并代理每个 key 到 vm 实例
     initInjections(vm) // resolve injections before data/props
     initState(vm) // 数据响应式的重点，处理 props、methods、data、computed、watch
     // 解析组件配置项上的 provide 对象，将其挂载到 vm._provided 属性上
+    // 总结 provide inject 实现原理
+    // inject 并没有将属性真正注入子组件，而是子组件向上一层层去找到对应的key
     initProvide(vm) // resolve provide after data/props
-    callHook(vm, 'created') // 调用 created 钩子函数
+    callHook(vm, 'created') // 调用 created 生命周期函数
 
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
@@ -99,7 +106,9 @@ export function initMixin (Vue: Class<Component>) {
   }
 }
 
+// 性能优化，打平对象上的属性，减少运行时原型链的查找，提高执行效率
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) { // 组件合并 options
+  // 基于 构造函数 上的配置对象创建 vm.$options
   const opts = vm.$options = Object.create(vm.constructor.options)
   // doing this because it's faster than dynamic enumeration.
   const parentVnode = options._parentVnode
@@ -113,6 +122,7 @@ export function initInternalComponent (vm: Component, options: InternalComponent
   opts._renderChildren = vnodeComponentOptions.children
   opts._componentTag = vnodeComponentOptions.tag
 
+  // 有 render 方法将其添加到 vm.$options 上
   if (options.render) {
     opts.render = options.render
     opts.staticRenderFns = options.staticRenderFns
@@ -121,15 +131,16 @@ export function initInternalComponent (vm: Component, options: InternalComponent
 
 /**
  * 从组件构造函数中解析配置对象 options，并合并基类选项
- * @param {*} Ctor 
- * @returns 
+ * @param {*} Ctor
+ * @returns
  */
 export function resolveConstructorOptions (Ctor: Class<Component>) {
-    // 配置项目
+    // 从构造函数上获取选项
   let options = Ctor.options
   if (Ctor.super) {
      // 存在基类，递归解析基类构造函数的选项
     const superOptions = resolveConstructorOptions(Ctor.super)
+    // 缓存
     const cachedSuperOptions = Ctor.superOptions
     if (superOptions !== cachedSuperOptions) { // 说明基类构造函数选项已经发生改变，需要重新设置
       // super option changed,
@@ -158,7 +169,7 @@ export function resolveConstructorOptions (Ctor: Class<Component>) {
  */
 function resolveModifiedOptions (Ctor: Class<Component>): ?Object {
   let modified
-  
+
   // 构造函数选项
   const latest = Ctor.options
   // 密封的构造函数选项，备份
