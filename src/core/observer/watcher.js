@@ -127,13 +127,14 @@ export default class Watcher {
   /**
    * Add a dependency to this directive.
    */
+  // 将 dep 放到 watcher 中
   addDep (dep: Dep) {
     const id = dep.id
     if (!this.newDepIds.has(id)) { // 防止重复添加
       this.newDepIds.add(id)
       this.newDeps.push(dep)
       if (!this.depIds.has(id)) {
-        dep.addSub(this) // 把当前的 watcher 订阅到这个数据持有的 dep 的 subs 中
+        dep.addSub(this) // 将 watcher 自己放到 dep 中，双向收集
       }
     }
   }

@@ -34,7 +34,10 @@ export function toggleObserving (value: boolean) {
  * object's property keys into getter/setters that
  * collect dependencies and dispatch updates.
  */
-// Observer 用于给对象属性添加 getter 和 setter，用于依赖收集和派发更新
+/**
+ * 观察者类，会被附加到每个被观察的对象上，value.__ob__ = this
+ * 而对象的各个属性则会被转换成 getter/setter，并收集依赖和通知更新
+ */
 export class Observer {
   value: any;
   dep: Dep;
@@ -42,13 +45,21 @@ export class Observer {
 
   constructor (value: any) {
     this.value = value
+    // 实例话一个 dep
     this.dep = new Dep()
     this.vmCount = 0
+    // 在 value 对象上设置 __ob__ 属性，enumerable 为 false，保证这个私有属性不会被 this.walk 遍历到
     def(value, '__ob__', this)
-    //def 就是 Object.defineProperty，此处给 value 添加 __ob__ 属性，值就是当前 observer 实例
-    // 为什么这里要使用 Object.defineProperty 给 value 添加 __ob__ 属性，而不是直接赋值，因为如果value是对象，后面就会调用 walk 去遍历 value 所有的 key，如果直接添加 __ob__ 属性，那么 __ob__ 也会被遍历出来
 
-    if (Array.isArray(value)) { // 如果 value 是数组，就调用 observeArray 把value数组每个元素都使用 observe 处理
+    if (Array.isArray(value)) {
+      /**
+       * value 为数组
+       * hasProto = '__proto__' in {}
+       * 用于判断对象是否存在 __proto__ 属性，通过 obj.__proto__ 可以访问对象的原型链
+       * 但由于 __proto__ 不是标准属性，所以有些浏览器不支持，比如 IE6-10，Opera10.1
+       * 为什么要判断，是因为一会儿要通过 __proto__ 操作数据的原型链
+       * 覆盖数组默认的七个原型方法，以实现数组响应式
+       */
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -56,7 +67,8 @@ export class Observer {
       }
       this.observeArray(value)
     } else {
-      this.walk(value) // 如果不是数组是对象，就调用 walk 遍历对象所有属性调用 defineReactive 变成响应式的
+      // value 为对象，调用 this.walk 为对象的每个属性（包括嵌套对象）设置响应式
+      this.walk(value)
     }
   }
 
@@ -65,7 +77,10 @@ export class Observer {
    * getter/setters. This method should only be called when
    * value type is Object.
    */
-  // 遍历对象的所有属性，添加 getter 和 setter
+  /**
+   * 遍历对象上的每个 key，为每个 key 设置响应式
+   * 仅当值为对象时才会走这里
+   */
   walk (obj: Object) {
     const keys = Object.keys(obj)
     for (let i = 0; i < keys.length; i++) {
@@ -76,7 +91,9 @@ export class Observer {
   /**
    * Observe a list of Array items.
    */
-  // 调用 observe 处理数组的每个元素
+    /**
+   * 遍历数组，为数组的每一项设置观察，处理数组元素为对象的情况
+   */
   observeArray (items: Array<any>) {
     for (let i = 0, l = items.length; i < l; i++) {
       observe(items[i])
@@ -90,7 +107,8 @@ export class Observer {
  * Augment a target Object or Array by intercepting
  * the prototype chain using __proto__
  */
-function protoAugment (target, src: Object) { // 使用 __proto__ 直接改变数组的原型
+// 用增强的数组原型方法覆盖默认的原型方法，之后再执行那七个改变数组自身的方法时就具有了依赖通知更新的能力，以达到数组响应式的目的
+function protoAugment (target, src: Object) {
   /* eslint-disable no-proto */
   target.__proto__ = src
   /* eslint-enable no-proto */
@@ -101,7 +119,8 @@ function protoAugment (target, src: Object) { // 使用 __proto__ 直接改变�
  * hidden properties.
  */
 /* istanbul ignore next */
-function copyAugment (target: Object, src: Object, keys: Array<string>) { // 遍历变异好的数组方法用Object.defineProperty定义到数组上
+//将增强的数组方法直接用 Object.defineProperty定义到数组上
+function copyAugment (target: Object, src: Object, keys: Array<string>) {
   for (let i = 0, l = keys.length; i < l; i++) {
     const key = keys[i]
     def(target, key, src[key])
@@ -113,14 +132,19 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) { // 遍
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
+/**
+ * 响应式处理的真正入口
+ * 为对象创建观察者实例，如果对象已经被观察过，则返回已有的观察者实例，否则创建新的观察者实例
+ * @param {*} value 对象 => {}
+ */
 export function observe (value: any, asRootData: ?boolean): Observer | void {
-  // observe 接收两个参数，value是想要响应式的对象，asRootData 标识它是否是一个根的data
-  if (!isObject(value) || value instanceof VNode) { // 如果 value 不是对象，或者是 vnode 类型对象，就不处理返回
+  if (!isObject(value) || value instanceof VNode) {
+    // 非对象和 VNode 实例不做响应式处理
     return
   }
   let ob: Observer | void
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
-    // 如果value已经有了 __ob__ 属性且是 Observer 实例就直接返回  value.__ob__
+    // 如果 value 对象上存在 __ob__ 属性，则表示已经做过观察了，直接返回 __ob__ 属性
     ob = value.__ob__
   } else if (
     shouldObserve &&
@@ -129,8 +153,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     Object.isExtensible(value) &&
     !value._isVue
   ) {
-    // 判断 shouldObserve 开关，判断不是一个服务端渲染，判断 value 是一个数组或对象，判断value 是可扩展的，并且value不是Vue实例s
-    // 就value 传给 Observer 生成 observer 实例返回
+    // 创建观察者实例
     ob = new Observer(value)
   }
   if (asRootData && ob) {
@@ -142,6 +165,11 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
 /**
  * Define a reactive property on an Object.
  */
+/**
+ * 拦截 obj[key] 的读取和设置操作：
+ *   1、在第一次读取时收集依赖，比如执行 render 函数生成虚拟 DOM 时会有读取操作
+ *   2、在更新时设置新值并通知依赖更新
+ */
 export function defineReactive (
   obj: Object,
   key: string,
@@ -149,59 +177,79 @@ export function defineReactive (
   customSetter?: ?Function,
   shallow?: boolean
 ) {
+  // 实例化 dep，一个 key 一个 dep
   const dep = new Dep()
 
-  const property = Object.getOwnPropertyDescriptor(obj, key) // 拿到对象的属性的 descriptor ，如果这个属性不可配置，就不处理返回
+  // 获取 obj[key] 的属性描述符，发现它是不可配置对象的话直接 return
+  const property = Object.getOwnPropertyDescriptor(obj, key)
   if (property && property.configurable === false) {
     return
   }
 
   // cater for pre-defined getter/setters
-  // 拿到对象属性的 getter 和 setter
+  // 记录 getter 和 setter，获取 val 值
   const getter = property && property.get
   const setter = property && property.set
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key]
   }
- // 拿到 对象属性然后再次调用 observe 递归地去将下一层对象变成响应式的
+  // 递归调用，处理 val 即 obj[key] 的值为对象的情况，保证对象中的所有 key 都被观察
   let childOb = !shallow && observe(val)
 
-  // 然后为对象属性设置 getter setter ，当获取和设置这个对象属性的时候就会触发 getter setter
+  // 响应式核心
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
-    get: function reactiveGetter () { // 响应式对象触发 getter ，就是依赖收集的过程
+    // get 拦截对 obj[key] 的读取操作，进行依赖收集，并返回值
+    get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
+      /**
+       * Dep.target 为 Dep 类的一个静态属性，值为 watcher，在实例化 Watcher 时会被设置
+       * 实例化 Watcher 时会执行 new Watcher 时传递的回调函数（computed 除外，因为它懒执行）
+       * 而回调函数中如果有 vm.key 的读取行为，则会触发这里的 读取 拦截，进行依赖收集
+       * 回调函数执行完以后又会将 Dep.target 设置为 null，避免这里重复收集依赖
+       */
       if (Dep.target) {
+        // 依赖收集，在 dep 中添加 watcher，也在 watcher 中添加 dep
         dep.depend()
+        // childOb 表示对象中嵌套对象的观察者对象，如果存在也对其进行依赖收集
         if (childOb) {
           childOb.dep.depend()
+          // 如果是 obj[key] 是 数组，则触发数组响应式
           if (Array.isArray(value)) {
+            // 为数组项为对象的项添加依赖
             dependArray(value)
           }
         }
       }
       return value
     },
+    // set 拦截对 obj[key] 的设置新值的操作
     set: function reactiveSetter (newVal) {
-      const value = getter ? getter.call(obj) : val // 获取老值
+      // 旧的 obj[key]
+      const value = getter ? getter.call(obj) : val
+      // 如果新老值一样，则直接 return，不触发响应式更新过程
       /* eslint-disable no-self-compare */
-      if (newVal === value || (newVal !== newVal && value !== value)) { // 没有发生变化不做处理
+      if (newVal === value || (newVal !== newVal && value !== value)) {
         return
       }
       /* eslint-enable no-self-compare */
       if (process.env.NODE_ENV !== 'production' && customSetter) {
         customSetter()
       }
+      // setter 不存在说明该属性是一个只读属性，直接 return
       // #7981: for accessor properties without setter
       if (getter && !setter) return
+      // 设置新值
       if (setter) {
         setter.call(obj, newVal)
       } else {
         val = newVal
       }
-      childOb = !shallow && observe(newVal) // 如果 shallow 是 false ，就将新值变成响应式的
-      dep.notify() // 通知所有订阅者
+      // 对新值进行观察，让新值也是响应式的
+      childOb = !shallow && observe(newVal)
+      // 当响应式数据更新时，依赖通知更新
+      dep.notify()
     }
   })
 }
@@ -278,6 +326,10 @@ export function del (target: Array<any> | Object, key: any) {
 /**
  * Collect dependencies on array elements when the array is touched, since
  * we cannot intercept array element access like property getters.
+ */
+/**
+ * 遍历每个数组元素，递归处理数组项为对象的情况，为其添加依赖
+ * 因为前面的递归阶段无法为数组中的对象元素添加依赖
  */
 function dependArray (value: Array<any>) {
   for (let e, i = 0, l = value.length; i < l; i++) {
