@@ -61,15 +61,24 @@ export function setCurrentRenderingInstance (vm: Component) {
 
 export function renderMixin (Vue: Class<Component>) {
   // install runtime convenience helpers
+  // 在组件实例上挂载一些运行时需要用到的工具方法
   installRenderHelpers(Vue.prototype)
 
   Vue.prototype.$nextTick = function (fn: Function) {
     return nextTick(fn, this)
   }
 
-  Vue.prototype._render = function (): VNode { // _render 返回值是一个 vnode
+  /**
+ * 通过执行 render 函数生成 VNode
+ * 不过里面加了大量的异常处理代码
+ */
+ // _render 返回值是一个 vnode
+  Vue.prototype._render = function (): VNode {
     const vm: Component = this
-    const { render, _parentVnode } = vm.$options // render函数是在 $mount 中根据 template 的 dom 生成的方法
+    // 获取 render
+    // 用户实例化 vue 时提供了 render 配置项
+    // 编译器编译模板生成 render
+    const { render, _parentVnode } = vm.$options
 
     if (_parentVnode) {
       vm.$scopedSlots = normalizeScopedSlots(
@@ -81,7 +90,8 @@ export function renderMixin (Vue: Class<Component>) {
 
     // set parent vnode. this allows render functions to have access
     // to the data on the placeholder node.
-    vm.$vnode = _parentVnode // 占位符 vnode
+     // 占位符 vnode
+    vm.$vnode = _parentVnode
     // render self
     let vnode
     try {
@@ -89,11 +99,15 @@ export function renderMixin (Vue: Class<Component>) {
       // separately from one another. Nested component's render fns are called
       // when parent component is patched.
       currentRenderingInstance = vm
+      // 执行 render 函数得到组件 vnode
       vnode = render.call(vm._renderProxy, vm.$createElement)
       // 调用 render 函数生成 vnode，this 对象是 vm._renderProxy，生产环境它就是 vm，开发环境是一个 proxy 对象
       // vm._renderProxy 是在 _init 阶段定义的
     } catch (e) {
       handleError(e, vm, `render`)
+      // 到这儿，说明执行 render 函数时出错了
+      // 开发环境渲染错误信息，生产环境返回之前的 vnode，以防止渲染错误导致组件空白
+
       // return error render result,
       // or previous vnode to prevent render error causing blank component
       /* istanbul ignore else */
@@ -111,24 +125,27 @@ export function renderMixin (Vue: Class<Component>) {
       currentRenderingInstance = null
     }
     // if the returned array contains only a single node, allow it
+
+  // 如果返回的 vnode 是数组，并且只包含了一个元素，则直接打平
     if (Array.isArray(vnode) && vnode.length === 1) {
       vnode = vnode[0]
     }
     // return empty vnode in case the render function errored out
-    if (!(vnode instanceof VNode)) { // 如果新生成的 vnode 不是 VNode 实例
+
+    // 多个根节点异常提示
+    // render 函数出错时，返回一个空的 vnode
+    if (!(vnode instanceof VNode)) {
       if (process.env.NODE_ENV !== 'production' && Array.isArray(vnode)) {
-        // 如果这时候 vnode 是个数组，说明模板有多个根节点，生成了多个 vnode ，报出警告
         warn(
           'Multiple root nodes returned from render function. Render function ' +
           'should return a single root node.',
           vm
         )
       }
-      //否则生成一个空的 vnode
       vnode = createEmptyVNode()
     }
     // set parent
-    vnode.parent = _parentVnode // 根据组件 vnode 生成的渲染vnode，这个渲染 vnode 的父级指向占位符 vnode
+    vnode.parent = _parentVnode
     return vnode
   }
 }
