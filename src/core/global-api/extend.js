@@ -16,55 +16,88 @@ export function initExtend (Vue: GlobalAPI) {
   /**
    * Class inheritance
    */
+  /**
+ * 基于 Vue 去扩展子类，该子类同样支持进一步的扩展
+ * 扩展时可以传递一些默认配置，就像 Vue 也会有一些默认配置
+ * 默认配置如果和基类有冲突则会进行选项合并（mergeOptions)
+ */
   Vue.extend = function (extendOptions: Object): Function {
     extendOptions = extendOptions || {}
-    const Super = this // 就是 Vue
+    const Super = this // Vue 构造函数
     const SuperId = Super.cid
+    
+  /**
+   * 利用缓存，如果存在则直接返回缓存中的构造函数
+   * 什么情况下可以利用到这个缓存？
+   *   如果你在多次调用 Vue.extend 时使用了同一个配置项（extendOptions），这时就会启用该缓存
+   */
     const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
-    // 将生成好的子类构造器缓存优化，下次传入同样的参数就不用再次生成了
 
     if (cachedCtors[SuperId]) {
       return cachedCtors[SuperId]
     }
 
+    // 验证组件名称
     const name = extendOptions.name || Super.options.name
     if (process.env.NODE_ENV !== 'production' && name) {
-      validateComponentName(name) // 判断组件 name 属性是否合法，不合法就会报错
+      validateComponentName(name)
     }
 
-    const Sub = function VueComponent (options) { // 创建了一个子构造函数，里面也是调用了 Vue.prototype._init
+      // 定义 Sub 构造函数，和 Vue 构造函数一样
+    const Sub = function VueComponent (options) {
+      // 初始化
       this._init(options)
     }
-    Sub.prototype = Object.create(Super.prototype) // Sub 构造函数继承自 Vue
+      // 通过原型继承的方式继承 Vue
+    Sub.prototype = Object.create(Super.prototype)
+    // 设置构造函数
     Sub.prototype.constructor = Sub
     Sub.cid = cid++
+    // 选项合并，合并 Vue 的配置项到 自己的配置项上来
+    // 可以通过 Vue.extend 定义一个子类，预设一些配置项
     Sub.options = mergeOptions(
       Super.options,
       extendOptions
-    ) // 自身的 options 和 Vue.optinos 做了合并
+    )
+    // 记录自己的基类
     Sub['super'] = Super
 
     // For props and computed properties, we define the proxy getters on
     // the Vue instances at extension time, on the extended prototype. This
     // avoids Object.defineProperty calls for each instance created.
+    // 初始化 props，将 props 配置代理到 Sub.prototype._props 对象上
+    // 在组件内通过 this._props 方式可以访问
     if (Sub.options.props) {
       initProps(Sub)
     }
+    
+  // 初始化 computed，将 computed 配置代理到 Sub.prototype 对象上
+  // 在组件内可以通过 this.computedKey 的方式访问
     if (Sub.options.computed) {
       initComputed(Sub)
     }
 
     // allow further extension/mixin/plugin usage
+  // 定义 extend、mixin、use 这三个静态方法，允许在 Sub 基础上再进一步构造子类
     Sub.extend = Super.extend
     Sub.mixin = Super.mixin
     Sub.use = Super.use
 
     // create asset registers, so extended classes
     // can have their private assets too.
+  // 定义 component、filter、directive 三个静态方法
     ASSET_TYPES.forEach(function (type) {
       Sub[type] = Super[type]
     })
     // enable recursive self-lookup
+    
+  // 递归组件的原理，如果组件设置了 name 属性，则将自己注册到自己的 components 选项中
+    /**
+     * {
+     *  name: 'Comp',
+     *  components: { 'Comp': Comp }
+     * }
+     */
     if (name) {
       Sub.options.components[name] = Sub
     }
@@ -72,6 +105,9 @@ export function initExtend (Vue: GlobalAPI) {
     // keep a reference to the super options at extension time.
     // later at instantiation we can check if Super's options have
     // been updated.
+    
+  // 在扩展时保留对基类选项的引用。
+  // 稍后在实例化时，我们可以检查 Super 的选项是否具有更新
     Sub.superOptions = Super.options
     Sub.extendOptions = extendOptions
     Sub.sealedOptions = extend({}, Sub.options)

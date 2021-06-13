@@ -413,6 +413,7 @@ export function mergeOptions (
   // 处理原始 child 对象上的 extends 和 mixins，分别执行 mergeOptions，将这些继承而来的选项合并到 parent
   // mergeOptions 处理过的对象会含有 _base 属性
   if (!child._base) {
+    // { extend } 和 mixin 很类似，让你基于一个组件去扩展另外一个，不需要使用 Vue.extend
     if (child.extends) {
       parent = mergeOptions(parent, child.extends, vm)
     }

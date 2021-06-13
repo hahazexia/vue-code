@@ -118,6 +118,8 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
  * @param {*} ctx 上下文
  * @returns 
  */
+
+// Vue.nextTick(function () { xxx }) 
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
   // 将传入 nextTick 的回调函数用 try catch 包装一层，方便异常捕获

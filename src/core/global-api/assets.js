@@ -7,7 +7,19 @@ export function initAssetRegisters (Vue: GlobalAPI) {
   /**
    * Create asset registration methods.
    */
+  /**
+ * 定义 Vue.component、Vue.filter、Vue.directive 这三个方法
+ * 这三个方法所做的事情是类似的，就是在 this.options.xx 上存放对应的配置
+ * 比如 Vue.component(compName, {xx}) 结果是 this.options.components.compName = 组件构造函数
+ * ASSET_TYPES = ['component', 'directive', 'filter']
+ */
   ASSET_TYPES.forEach(type => {
+      /**
+   * 比如：Vue.component(name, definition)
+   * @param {*} id name
+   * @param {*} definition 组件构造函数或者配置对象 
+   * @returns 返回组件构造函数
+   */
     Vue[type] = function (
       id: string,
       definition: Function | Object
@@ -19,13 +31,17 @@ export function initAssetRegisters (Vue: GlobalAPI) {
         if (process.env.NODE_ENV !== 'production' && type === 'component') { // 开发环境下对组件名做校验
           validateComponentName(id)
         }
-        if (type === 'component' && isPlainObject(definition)) { // 如果调用的是 Vue.component 组件注册，并且 definition 是对象
-          definition.name = definition.name || id // 如果定义没有 name ，就取 id
-          definition = this.options._base.extend(definition) // 调用 Vue.extend 生成子组件构造函数
+        if (type === 'component' && isPlainObject(definition)) {
+        // 如果组件配置中存在 name，则使用，否则直接使用 id
+          definition.name = definition.name || id
+           // extend 就是 Vue.extend，所以这时的 definition 就变成了 组件构造函数，使用时可直接 new Definition()
+          definition = this.options._base.extend(definition) // 调用 Vue.extend 生成组件构造函数
         }
         if (type === 'directive' && typeof definition === 'function') {
           definition = { bind: definition, update: definition }
         }
+        // this.options.components[id] = definition
+        // 在实例化时通过 mergeOptions 将全局注册的组件合并到每个组件的配置对象的 components 中
         this.options[type + 's'][id] = definition // 在 Vue.options 上加入对应的定义
         return definition
       }
