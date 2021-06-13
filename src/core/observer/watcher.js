@@ -119,7 +119,7 @@ export default class Watcher {
     let value
     const vm = this.vm
     try {
-      // 执行回调函数，比如 updateComponent，进入 patch 阶段
+      // 执行回调函数，比如 渲染watcher 执行 updateComponent，进入 patch 阶段
       // 渲染 watcher 这里调用的是 vm._update(vm._render(), hydrating)
       // computed watcher 这里调用的是用户定义的 computed key 对应的函数
       value = this.getter.call(vm, vm)
@@ -201,8 +201,9 @@ export default class Watcher {
       // 懒执行时走这里，比如 computed
       this.dirty = true
       // 将 dirty 置为 true，可以让 computedGetter 执行时重新计算 computed 回调函数的执行结果
+      // dirty 设置为 true 后，当组件更新完毕，computedKey 响应式数据再次被获取时，触发 computed getter，重新执行 computed 回调函数，计算新值，缓存到 computed watcher.value
     } else if (this.sync) {
-      // 同步执行，在使用 vm.$watch 或者 watch 选项时可以传一个 sync 选项，
+      // 同步执行，在使用 vm.$watch 或者 watch 选项时可以传一个 sync 选项，比如 { sync: true }
       // 当为 true 时在数据更新时该 watcher 就不走异步更新队列，直接执行 this.run
       // 方法进行更新
       // 这个属性在官方文档中没有出现
