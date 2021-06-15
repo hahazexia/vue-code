@@ -14,62 +14,93 @@ const idToTemplate = cached(id => { // 获取元素的 innerHTML，并且将结�
   return el && el.innerHTML
 })
 
-const mount = Vue.prototype.$mount // 将 runtime only 的 $mount 存下，重新定义 $mount ，因为带 compiler 的 $mount 方法与之不同
+/**
+ * 编译器的入口
+ * 运行时的 Vue.js 包就没有这部分的代码，通过 打包器 结合 vue-loader + vue-compiler-utils 进行预编译，将模版编译成 render 函数
+ *
+ * 就做了一件事情，得到组件的渲染函数，将其设置到 this.$options 上
+ */
+const mount = Vue.prototype.$mount // 将 runtime only 的 $mount 备份，重新定义 $mount ，因为带 compiler 的 $mount 方法与之不同
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
-  el = el && query(el) // query 方法获取到 el 对应的 dom 元素
+
+  // 挂载点 query 方法获取到 el 对应的 dom 元素
+  el = el && query(el)
 
   /* istanbul ignore if */
-  if (el === document.body || el === document.documentElement) { // 判断 el 对应 dom 元素是否是 html 和 body ，如果是就警告
+    // 挂载点不能是 body 或者 html
+  if (el === document.body || el === document.documentElement) {
     process.env.NODE_ENV !== 'production' && warn(
       `Do not mount Vue to <html> or <body> - mount to normal elements instead.`
     )
     return this
   }
 
+  // 配置项
   const options = this.$options
   // resolve template/el and convert to render function
-  if (!options.render) { // 如果没有定义 render 方法
-    let template = options.template // template 参数
+  /**
+   * 如果用户提供了 render 配置项，则直接跳过编译阶段，否则进入编译阶段
+   *   解析 template 和 el，并转换为 render 函数
+   *   优先级：render > template > el
+   */
+  /**
+   * 面试题：如果选项中同时设置了 el, template, render ，它们优先级是怎样的？
+   * 它们的优先级 render > template > el
+   */
+  if (!options.render) {
+    let template = options.template
     if (template) {
-      if (typeof template === 'string') { // 如果 template 参数是字符串
-        if (template.charAt(0) === '#') { // 如果值以 # 开始，则它将被用作选择符，并使用匹配元素的 innerHTML 作为模板。
-          template = idToTemplate(template) // 根据选择符获取元素的 innerHTML
+      // 处理 template 选项
+      if (typeof template === 'string') {
+        if (template.charAt(0) === '#') {
+          // { template: '#app' }，template 是一个 id 选择器，则获取该元素的 innerHtml 作为模版
+          template = idToTemplate(template)
           /* istanbul ignore if */
-          if (process.env.NODE_ENV !== 'production' && !template) { // 如果获取不到元素就警告
+          if (process.env.NODE_ENV !== 'production' && !template) {
             warn(
               `Template element not found or is empty: ${options.template}`,
               this
             )
           }
         }
-      } else if (template.nodeType) { // 如果 template 是 dom 节点，直接获取 innerHtml
+      } else if (template.nodeType) {
+        // template 是一个正常的元素，获取其 innerHtml 作为模版
         template = template.innerHTML
-      } else {// template 不是字符串也不是节点，报错返回
+      } else {
         if (process.env.NODE_ENV !== 'production') {
           warn('invalid template option:' + template, this)
         }
         return this
       }
-    } else if (el) {// 如果没有定义 template 属性，获取字符串形式的 html 片段
+    } else if (el) {
+      // 设置了 el 选项，获取 el 选择器的 outerHtml 作为模版
       template = getOuterHTML(el)
     }
-    if (template) { // 对字符串形式的 template 进行处理，将其变成 render 方法
+
+    // 模版就绪，进入编译阶段
+    // 对字符串形式的 template 进行处理，将其变成 render 方法
+    if (template) {
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
         mark('compile')
       }
 
+      // 编译模版，得到 动态渲染函数和静态渲染函数
       const { render, staticRenderFns } = compileToFunctions(template, {
+        // 在非生产环境下，编译时记录标签属性在模版字符串中开始和结束的位置索引
         outputSourceRange: process.env.NODE_ENV !== 'production',
         shouldDecodeNewlines,
         shouldDecodeNewlinesForHref,
+        // 界定符，默认 {{}}
         delimiters: options.delimiters,
+        // 是否保留注释
         comments: options.comments
       }, this)
-      options.render = render // 添加 template 编译好的 render 方法到 $options 上
+      // 将两个渲染函数放到 this.$options 上
+      options.render = render
       options.staticRenderFns = staticRenderFns
 
       /* istanbul ignore if */
@@ -79,7 +110,9 @@ Vue.prototype.$mount = function (
       }
     }
   }
-  return mount.call(this, el, hydrating) // 调用 runtime only 时定义的 $mount 方法
+
+  // 执行挂载
+  return mount.call(this, el, hydrating)
 }
 
 /**

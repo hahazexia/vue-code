@@ -8,3 +8,4 @@
 - [全局API](./doc/6.api.md)
 - [实例方法](./doc/7.instance_methods.md)
 - [hook_event](./doc/8.hook_event.md)
+- [编译器解析](./doc/9.compiler_resolve.md)
