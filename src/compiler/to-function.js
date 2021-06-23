@@ -33,8 +33,11 @@ export function createCompileToFunctionFn (compile: Function): Function {
  */
 
   return function compileToFunctions (
+    // 字符串模板
     template: string,
+    // 编译选项
     options?: CompilerOptions,
+    // 组件实例
     vm?: Component
   ): CompiledFunctionResult {
 

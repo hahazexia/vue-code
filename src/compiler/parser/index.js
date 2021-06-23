@@ -76,28 +76,47 @@ export function createASTElement (
 /**
  * Convert HTML string to AST.
  */
+/**
+ * 
+ * 将 HTML 字符串转换为 AST
+ * @param {*} template HTML 模版
+ * @param {*} options 平台特有的编译选项
+ * @returns root
+ */
 export function parse (
   template: string,
   options: CompilerOptions
 ): ASTElement | void {
+  // 日志
   warn = options.warn || baseWarn
 
+  // 是否为 pre 标签
   platformIsPreTag = options.isPreTag || no
+  // 必须使用 props 进行绑定的属性
   platformMustUseProp = options.mustUseProp || no
+  // 获取标签的命名空间
   platformGetTagNamespace = options.getTagNamespace || no
+  // 是否是保留标签（html + svg)
   const isReservedTag = options.isReservedTag || no
+  // 判断一个元素是否为一个组件
   maybeComponent = (el: ASTElement) => !!el.component || !isReservedTag(el.tag)
-
+  // 分别获取 options.modules 下的 class、model、style 三个模块中的 transformNode、preTransformNode、postTransformNode 方法
+  // 负责处理元素节点上的 class、style、v-model
   transforms = pluckModuleFunction(options.modules, 'transformNode')
   preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
   postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
 
+  // 界定符，比如: {{}}
   delimiters = options.delimiters
 
+  // 解析的中间结果放这里
   const stack = []
+  // 空格选项
   const preserveWhitespace = options.preserveWhitespace !== false
   const whitespaceOption = options.whitespace
+  // 根节点，以 root 为根，处理后的节点都会按照层级挂载到 root 下，最后 return 的就是 root，一个 ast 语法树
   let root
+  // 当前元素的父元素
   let currentParent
   let inVPre = false
   let inPre = false
@@ -204,7 +223,9 @@ export function parse (
   parseHTML(template, {
     warn,
     expectHTML: options.expectHTML,
+    // 是否是自闭合标签
     isUnaryTag: options.isUnaryTag,
+    // 是否可以只有开始标签
     canBeLeftOpenTag: options.canBeLeftOpenTag,
     shouldDecodeNewlines: options.shouldDecodeNewlines,
     shouldDecodeNewlinesForHref: options.shouldDecodeNewlinesForHref,
@@ -396,6 +417,7 @@ export function parse (
       }
     }
   })
+  // 返回生成的 ast 对象
   return root
 }
 
