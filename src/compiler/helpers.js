@@ -34,6 +34,7 @@ export function addAttr (el: ASTElement, name: string, value: any, range?: Range
 }
 
 // add a raw attr (use this in preTransforms)
+// 在 el.attrsMap 和 el.attrsList 中添加指定属性 name
 export function addRawAttr (el: ASTElement, name: string, value: any, range?: Range) {
   el.attrsMap[name] = value
   el.attrsList.push(rangeSetItem({ name, value }, range))
@@ -158,11 +159,15 @@ export function getRawBindingAttr (
     el.rawAttrsMap[name]
 }
 
+/**
+ * 获取 el 对象上执行属性 name 的值 
+ */
 export function getBindingAttr (
   el: ASTElement,
   name: string,
   getStatic?: boolean
 ): ?string {
+  // 获取指定属性的值
   const dynamicValue =
     getAndRemoveAttr(el, ':' + name) ||
     getAndRemoveAttr(el, 'v-bind:' + name)
@@ -180,12 +185,20 @@ export function getBindingAttr (
 // doesn't get processed by processAttrs.
 // By default it does NOT remove it from the map (attrsMap) because the map is
 // needed during codegen.
+/**
+ * 从 el.attrsList 中删除指定的属性 name
+ * 如果 removeFromMap 为 true，则同样删除 el.attrsMap 对象中的该属性，
+ *   比如 v-if、v-else-if、v-else 等属性就会被移除,
+ *   不过一般不会删除该对象上的属性，因为从 ast 生成 代码 期间还需要使用该对象
+ * 返回指定属性的值
+ */
 export function getAndRemoveAttr (
   el: ASTElement,
   name: string,
   removeFromMap?: boolean
 ): ?string {
   let val
+  // 将执行属性 name 从 el.attrsList 中移除
   if ((val = el.attrsMap[name]) != null) {
     const list = el.attrsList
     for (let i = 0, l = list.length; i < l; i++) {
@@ -195,9 +208,12 @@ export function getAndRemoveAttr (
       }
     }
   }
+  // 如果 removeFromMap 为 true，则从 el.attrsMap 中移除指定的属性 name
+  // 不过一般不会移除 el.attsMap 中的数据，因为从 ast 生成 代码 期间还需要使用该对象
   if (removeFromMap) {
     delete el.attrsMap[name]
   }
+  // 返回执行属性的值
   return val
 }
 
