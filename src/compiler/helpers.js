@@ -67,6 +67,19 @@ function prependModifierMarker (symbol: string, name: string, dynamic?: boolean)
     : symbol + name // mark the event as captured
 }
 
+/**
+ * 处理事件属性，将事件属性添加到 el.events 对象或者 el.nativeEvents 对象中，格式：
+ * el.events[name] = [{ value, start, end, modifiers, dynamic }, ...]
+ * 其中用了大量的篇幅在处理 name 属性带修饰符 (modifier) 的情况
+ * @param {*} el ast 对象
+ * @param {*} name 属性名，即事件名
+ * @param {*} value 属性值，即事件回调函数名
+ * @param {*} modifiers 修饰符
+ * @param {*} important
+ * @param {*} warn 日志
+ * @param {*} range
+ * @param {*} dynamic 属性名是否为动态属性
+ */
 export function addHandler (
   el: ASTElement,
   name: string,
@@ -77,9 +90,11 @@ export function addHandler (
   range?: Range,
   dynamic?: boolean
 ) {
+  // modifiers 是一个对象，如果传递的参数为空，则给一个冻结的空对象
   modifiers = modifiers || emptyObject
   // warn prevent and passive modifier
   /* istanbul ignore if */
+  // 提示：prevent 和 passive 修饰符不能一起使用
   if (
     process.env.NODE_ENV !== 'production' && warn &&
     modifiers.prevent && modifiers.passive
@@ -94,38 +109,54 @@ export function addHandler (
   // normalize click.right and click.middle since they don't actually fire
   // this is technically browser-specific, but at least for now browsers are
   // the only target envs that have right/middle clicks.
+  // 标准化 click.right 和 click.middle，它们实际上不会被真正的触发，从技术讲他们是它们
+  // 是特定于浏览器的，但至少目前位置只有浏览器才具有右键和中间键的点击
   if (modifiers.right) {
+    // 右键
     if (dynamic) {
+      // 动态属性
       name = `(${name})==='click'?'contextmenu':(${name})`
     } else if (name === 'click') {
+      // 非动态属性，name = contextmenu
       name = 'contextmenu'
+      // 删除修饰符中的 right 属性
       delete modifiers.right
     }
   } else if (modifiers.middle) {
+    // 中间键
     if (dynamic) {
+      // 动态属性，name => mouseup 或者 ${name}
       name = `(${name})==='click'?'mouseup':(${name})`
     } else if (name === 'click') {
+      // 非动态属性，mouseup
       name = 'mouseup'
     }
   }
 
+  /**
+   * 处理 capture、once、passive 这三个修饰符，通过给 name 添加不同的标记来标记这些修饰符
+   */
   // check capture modifier
   if (modifiers.capture) {
     delete modifiers.capture
+    // 给带有 capture 修饰符的属性，加上 ! 标记
     name = prependModifierMarker('!', name, dynamic)
   }
   if (modifiers.once) {
     delete modifiers.once
+    // once 修饰符加 ~ 标记
     name = prependModifierMarker('~', name, dynamic)
   }
   /* istanbul ignore if */
   if (modifiers.passive) {
     delete modifiers.passive
+    // passive 修饰符加 & 标记
     name = prependModifierMarker('&', name, dynamic)
   }
 
   let events
   if (modifiers.native) {
+    // native 修饰符， 监听组件根元素的原生事件，将事件信息存放到 el.nativeEvents 对象中
     delete modifiers.native
     events = el.nativeEvents || (el.nativeEvents = {})
   } else {
@@ -134,9 +165,12 @@ export function addHandler (
 
   const newHandler: any = rangeSetItem({ value: value.trim(), dynamic }, range)
   if (modifiers !== emptyObject) {
+    // 说明有修饰符，将修饰符对象放到 newHandler 对象上
+    // { value, dynamic, start, end, modifiers }
     newHandler.modifiers = modifiers
   }
 
+  // 将配置对象放到 events[name] = [newHander, handler, ...]
   const handlers = events[name]
   /* istanbul ignore if */
   if (Array.isArray(handlers)) {
@@ -160,7 +194,7 @@ export function getRawBindingAttr (
 }
 
 /**
- * 获取 el 对象上执行属性 name 的值 
+ * 获取 el 对象上执行属性 name 的值
  */
 export function getBindingAttr (
   el: ASTElement,
