@@ -115,6 +115,7 @@ export function addHandler (
     // 右键
     if (dynamic) {
       // 动态属性
+      // 属性名为 click 时， name 为 contextmenu，否则就是name本身
       name = `(${name})==='click'?'contextmenu':(${name})`
     } else if (name === 'click') {
       // 非动态属性，name = contextmenu
@@ -140,6 +141,8 @@ export function addHandler (
   if (modifiers.capture) {
     delete modifiers.capture
     // 给带有 capture 修饰符的属性，加上 ! 标记
+    // 如果是动态属性，_p(attrName,!)
+    // 静态属性，!attrName
     name = prependModifierMarker('!', name, dynamic)
   }
   if (modifiers.once) {

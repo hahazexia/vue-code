@@ -94,9 +94,52 @@ let maybeComponent
     // ref
     ref: val,
     refInFor: Boolean,
+    // 插槽
+    slotTarget: 插槽名，
+    slotTargetDynamic: 是否动态插槽,
+    slotScope: 作用域插槽的值,
+    scopedSlots: {
+      name: {
+        slotTarget: 插槽名，
+        slotTargetDynamic: boolean,
+        children: [插槽内所有子元素],
+        slotScope: 作用域插槽的值
+      }
+    }
+    slot标签
+    slotName: 具名插槽的名称，
+    // 动态组件 
+    component: compName,
+    inlineTemplate: Boolean,
+    // class
+    staticClass: className,
+    classBinding: className,
+    // style
+    staticStyle: xxx,
+    styleBinding: xxx,
+    // 事件
+    nativeEvents: {},
+    events: {
+      name: [{value, dynamic, modifiers, start, end}]
+    },
+    // props
+    props: [{name, value,dynamic, start, end}],
+    // attrs
+    dynamicAttrs: [],
+    attrs: [{name, value, dynamic, start, end}],
+    // 其他指令
+    directives: [{name,rawName,value,arg,isDynamicArg,modifiers}],
 
-
-
+    // 已经被处理过了
+    processed: true，
+    // v-if
+    ifConditions: [{exp, block}],
+    elseif: elseifConditions,
+    else: true,
+    // v-pre
+    pre: true,
+    once: true,
+    parent,
   }
  */
 export function createASTElement (
@@ -158,7 +201,7 @@ export function parse (
   // 界定符，比如: {{}}
   delimiters = options.delimiters
 
-  // 解析的中间结果放这里
+  // 解析的中间结果放这里，ast对象
   const stack = []
   // 空格选项
   const preserveWhitespace = options.preserveWhitespace !== false
@@ -229,7 +272,9 @@ export function parse (
           const name = element.slotTarget || '"default"'
           ;(currentParent.scopedSlots || (currentParent.scopedSlots = {}))[name] = element
         }
+        // 将元素自己放入父元素中，children数组
         currentParent.children.push(element)
+        // 在自己身上记录 parent 属性，标记自己的父元素是谁
         element.parent = currentParent
       }
     }
@@ -464,7 +509,7 @@ export function parse (
       }
       closeElement(element)
     },
-
+    // 处理文本节点
     chars (text: string, start: number, end: number) {
       if (!currentParent) {
         if (process.env.NODE_ENV !== 'production') {
@@ -1031,6 +1076,7 @@ function getSlotName (binding) {
 }
 
 // handle <slot/> outlets处理自闭合 slot 标签
+// <slot name="header"></slot>
 // 得到插槽名称，el.slotName
 function processSlotOutlet (el) {
   if (el.tag === 'slot') {
@@ -1052,7 +1098,7 @@ function processSlotOutlet (el) {
  * 处理动态组件，<component :is="compName"></component>
  * 得到 el.component = compName
  */
-function processComponent (el) {
+function  processComponent (el) {
   let binding
   // 解析 is 属性，得到属性值，即组件名称，el.component = compName
   if ((binding = getBindingAttr(el, 'is'))) {
