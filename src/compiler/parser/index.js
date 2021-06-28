@@ -108,7 +108,7 @@ let maybeComponent
     }
     slot标签
     slotName: 具名插槽的名称，
-    // 动态组件 
+    // 动态组件
     component: compName,
     inlineTemplate: Boolean,
     // class
@@ -431,6 +431,12 @@ export function parse (
    * 为 element 对象分别执行 class、style、model 模块中的 preTransforms 方法
    * 不过 web 平台只有 model 模块有 preTransforms 方法
    * 用来处理存在 v-model 的 input 标签，但没处理 v-model 属性
+   * 将 <input v-model="data[type]" :type="type"> 变成三个标签，因为 type 属性是动态绑定的，所以在编译阶段将其变成区分开类型的三个标签，职责更加具体
+   *
+   * <input v-if="type === 'checkbox'" type="checkbox" v-model="data[type]">
+   * <input v-else-if="type === 'radio'" type="radio" v-model="data[type]">
+   * <input v-else :type="type" v-model="data[type]">
+   *
    * 分别处理了 input 为 checkbox、radio 和 其它的情况
    * input 具体是哪种情况由 el.ifConditions 中的条件来判断
    * <input v-mode="test" :type="checkbox or radio or other(比如 text)" />
