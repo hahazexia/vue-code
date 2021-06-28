@@ -70,6 +70,7 @@ Vue.prototype.$mount = function (
         // template 是一个正常的元素，获取其 innerHtml 作为模版
         template = template.innerHTML
       } else {
+        // template 既不是字符串也不是 Dom 节点，报错返回
         if (process.env.NODE_ENV !== 'production') {
           warn('invalid template option:' + template, this)
         }
