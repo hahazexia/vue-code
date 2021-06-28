@@ -137,7 +137,7 @@ export function parseHTML (html, options) {
         }
 
         // Start tag:
-         // 处理开始标签，比如 <div id="app">，startTagMatch = { tagName: 'div', attrs: [[xx], ...], start: index }
+         // 处理开始标签，比如 <div id="app">，startTagMatch = { tagName: 'div', attrs: [[xx], ...], start: index, end: index }
         const startTagMatch = parseStartTag()
         if (startTagMatch) {
           // 进一步处理上一步得到结果，并最后调用 options.start 方法
@@ -249,7 +249,7 @@ export function parseHTML (html, options) {
 
   /**
  * 解析开始标签，比如：<div id="app">
- * @returns { tagName: 'div', attrs: [[xx], ...], start: index }
+ * @returns { tagName: 'div', attrs: [[xx], ...], start: index, end: index }
  */
   function parseStartTag () {
     const start = html.match(startTagOpen)
@@ -294,7 +294,7 @@ export function parseHTML (html, options) {
  *  接下来调用 options.start 方法处理标签，并根据标签信息生成 element ast，
  *  以及处理开始标签上的属性和指令，最后将 element ast 放入 stack 数组
  *
- * @param {*} match { tagName: 'div', attrs: [[xx], ...], start: index }
+ * @param {*} match { tagName: 'div', attrs: [[xx], ...], start: index, end: index }
  */
   function handleStartTag (match) {
     const tagName = match.tagName

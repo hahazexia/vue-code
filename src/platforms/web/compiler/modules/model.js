@@ -24,12 +24,13 @@ import {
 } from 'compiler/parser/index'
 
 /**
+ * 预处理使用了 v-model 属性并且使用了绑定的 type 属性的 input 标签
  * 处理存在 v-model 的 input 标签，但没处理 v-model 属性
  * 分别处理了 input 为 checkbox、radio 和 其它的情况
  * input 具体是哪种情况由 el.ifConditions 中的条件来判断
  * <input v-mode="test" :type="checkbox or radio or other(比如 text)" />
- * @param {*} el 
- * @param {*} options 
+ * @param {*} el
+ * @param {*} options
  * @returns branch0
  */
 function preTransformNode (el: ASTElement, options: CompilerOptions) {
@@ -61,7 +62,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       const elseIfCondition = getAndRemoveAttr(el, 'v-else-if', true)
       // 克隆一个新的 el 对象，分别处理 input 为 chekbox、radio 或 其它的情况
       // 具体是哪种情况，通过 el.ifConditins 条件来判断
-      
+
       // 1. checkbox
       const branch0 = cloneASTElement(el)
 
@@ -69,11 +70,11 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       // <input v-for="item in arr" :key="item" />
       // 处理 v-for 表达式，得到 branch0.for = arr, branch0.alias = item
       processFor(branch0)
-      
+
       // 在 branch0.attrsMap 和 branch0.attrsList 对象中添加 type 属性
       addRawAttr(branch0, 'type', 'checkbox')
 
-      // 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性 
+      // 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性
       processElement(branch0, options)
       // 标记当前对象已经被处理过了
       branch0.processed = true // prevent it from double-processed
@@ -85,7 +86,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
         block: branch0
       })
 
-      
+
       // 克隆一个新的 ast 对象
       // 2. add radio else-if condition
       const branch1 = cloneASTElement(el)
@@ -93,9 +94,9 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       getAndRemoveAttr(branch1, 'v-for', true)
       // 在 branch1.attrsMap 和 branch1.attrsList 对象中添加 type 属性
       addRawAttr(branch1, 'type', 'radio')
-      // 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性 
+      // 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性
       processElement(branch1, options)
-      
+
       // 在 branch0.ifConfitions 数组中放入 { exp, block } 对象
       addIfCondition(branch0, {
         exp: `(${typeBinding})==='radio'` + ifConditionExtra,
