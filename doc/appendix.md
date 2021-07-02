@@ -1,0 +1,140 @@
+# 附录
+
+## Vue 原型
+
+```js
+// initMixin(Vue)    src/core/instance/init.js **************************************************
+Vue.prototype._init = function (options?: Object) {}
+
+// stateMixin(Vue)    src/core/instance/state.js **************************************************
+Vue.prototype.$data
+Vue.prototype.$props
+Vue.prototype.$set = set
+Vue.prototype.$delete = del
+Vue.prototype.$watch = function (
+  expOrFn: string | Function,
+  cb: any,
+  options?: Object
+): Function {}
+
+// eventsMixin(Vue)    src/core/instance/events.js **************************************************
+Vue.prototype.$on = function (event: string | Array<string>, fn: Function): Component {}
+Vue.prototype.$once = function (event: string, fn: Function): Component {}
+Vue.prototype.$off = function (event?: string | Array<string>, fn?: Function): Component {}
+Vue.prototype.$emit = function (event: string): Component {}
+
+// lifecycleMixin(Vue)    src/core/instance/lifecycle.js **************************************************
+Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {}
+Vue.prototype.$forceUpdate = function () {}
+Vue.prototype.$destroy = function () {}
+
+// renderMixin(Vue)    src/core/instance/render.js **************************************************
+// installRenderHelpers 函数中
+Vue.prototype._o = markOnce
+Vue.prototype._n = toNumber
+Vue.prototype._s = toString
+Vue.prototype._l = renderList
+Vue.prototype._t = renderSlot
+Vue.prototype._q = looseEqual
+Vue.prototype._i = looseIndexOf
+Vue.prototype._m = renderStatic
+Vue.prototype._f = resolveFilter
+Vue.prototype._k = checkKeyCodes
+Vue.prototype._b = bindObjectProps
+Vue.prototype._v = createTextVNode
+Vue.prototype._e = createEmptyVNode
+Vue.prototype._u = resolveScopedSlots
+Vue.prototype._g = bindObjectListeners
+Vue.prototype.$nextTick = function (fn: Function) {}
+Vue.prototype._render = function (): VNode {}
+
+// core/index.js 文件中
+Object.defineProperty(Vue.prototype, '$isServer', {
+  get: isServerRendering
+})
+
+Object.defineProperty(Vue.prototype, '$ssrContext', {
+  get () {
+    /* istanbul ignore next */
+    return this.$vnode && this.$vnode.ssrContext
+  }
+})
+
+// 在 runtime/index.js 文件中
+Vue.prototype.__patch__ = inBrowser ? patch : noop
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+): Component {
+  el = el && inBrowser ? query(el) : undefined
+  return mountComponent(this, el, hydrating)
+}
+
+// 在入口文件 entry-runtime-with-compiler.js 中重写了 Vue.prototype.$mount 方法
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+): Component {
+  // ... 函数体
+}
+```
+
+## Vue 静态方法和属性
+
+```js
+// initGlobalAPI
+Vue.config
+Vue.util = {
+	warn,
+	extend,
+	mergeOptions,
+	defineReactive
+}
+Vue.set = set
+Vue.delete = del
+Vue.nextTick = nextTick
+Vue.options = {
+	components: {
+		KeepAlive
+		// Transition 和 TransitionGroup 组件在 runtime/index.js 文件中被添加
+		// Transition,
+    	// TransitionGroup
+	},
+	directives: Object.create(null),
+	// 在 runtime/index.js 文件中，为 directives 添加了两个平台化的指令 model 和 show
+	// directives:{
+	//	model,
+    //	show
+	// },
+	filters: Object.create(null),
+	_base: Vue
+}
+
+// initUse ***************** global-api/use.js
+Vue.use = function (plugin: Function | Object) {}
+
+// initMixin ***************** global-api/mixin.js
+Vue.mixin = function (mixin: Object) {}
+
+// initExtend ***************** global-api/extend.js
+Vue.cid = 0
+Vue.extend = function (extendOptions: Object): Function {}
+
+// initAssetRegisters ***************** global-api/assets.js
+Vue.component =
+Vue.directive =
+Vue.filter = function (
+  id: string,
+  definition: Function | Object
+): Function | Object | void {}
+
+// expose FunctionalRenderContext for ssr runtime helper installation
+Object.defineProperty(Vue, 'FunctionalRenderContext', {
+  value: FunctionalRenderContext
+})
+
+Vue.version = '__VERSION__'
+
+// entry-runtime-with-compiler.js
+Vue.compile = compileToFunctions
+```

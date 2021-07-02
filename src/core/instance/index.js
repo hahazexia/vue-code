@@ -5,6 +5,8 @@ import { eventsMixin } from './events'
 import { lifecycleMixin } from './lifecycle'
 import { warn } from '../util/index'
 
+// 此文件定义 Vue 构造函数，然后定义 Vue 实例方法和属性，也就是修改 Vue.prototype
+
 // Vue 构造函数
 function Vue (options) {
   if (process.env.NODE_ENV !== 'production' &&
@@ -44,7 +46,7 @@ eventsMixin(Vue)
 lifecycleMixin(Vue)
 /**
  * 执行 installRenderHelpers，在 Vue.prototype 对象上安装运行时便利程序
- * 
+ *
  * 定义：
  *   Vue.prototype.$nextTick
  *   Vue.prototype._render

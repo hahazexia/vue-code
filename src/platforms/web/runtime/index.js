@@ -19,6 +19,12 @@ import { patch } from './patch'
 import platformDirectives from './directives/index'
 import platformComponents from './components/index'
 
+// 此文件对 Vue 进行平台化的包装
+// 设置平台化的 Vue.config。
+// 在 Vue.options 上混合了两个指令(directives)，分别是 model 和 show。
+// 在 Vue.options 上混合了两个组件(components)，分别是 Transition 和 TransitionGroup。
+// 在 Vue.prototype 上添加了两个方法：__patch__ 和 $mount。
+
 // install platform specific utils
 Vue.config.mustUseProp = mustUseProp
 Vue.config.isReservedTag = isReservedTag

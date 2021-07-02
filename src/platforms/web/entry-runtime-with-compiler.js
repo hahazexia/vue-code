@@ -9,6 +9,8 @@ import { query } from './util/index'
 import { compileToFunctions } from './compiler/index'
 import { shouldDecodeNewlines, shouldDecodeNewlinesForHref } from './util/compat'
 
+// 此文件在 运行时版本 的 Vue 上添加 compiler
+
 const idToTemplate = cached(id => { // 获取元素的 innerHTML，并且将结果缓存起来
   const el = query(id)
   return el && el.innerHTML
