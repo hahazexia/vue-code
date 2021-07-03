@@ -270,20 +270,22 @@ const defaultStrat = function (parentVal: any, childVal: any): any { // 默认�
 /**
  * Validate component names
  */
+// 遍历选项中的 components ，校验组件名字是否合法
 function checkComponents (options: Object) {
   for (const key in options.components) {
     validateComponentName(key)
   }
 }
 
-export function validateComponentName (name: string) { // 判断组件 name 是否合法
+// 判断组件 name 是否合法
+export function validateComponentName (name: string) {
   if (!new RegExp(`^[a-zA-Z][\\-\\.0-9_${unicodeRegExp.source}]*$`).test(name)) { // 组件名是否符合 h5 规范
     warn(
       'Invalid component name: "' + name + '". Component names ' +
       'should conform to valid custom element name in html5 specification.'
     )
   }
-  if (isBuiltInTag(name) || config.isReservedTag(name)) { // 如果是原生或保留 html 标签名作为组件 name，报错
+  if (isBuiltInTag(name) || config.isReservedTag(name)) { // 如果是 vue 内建组件名或原生或保留 html 标签名作为组件 name，报错
     warn(
       'Do not use built-in or reserved HTML elements as component ' +
       'id: ' + name
@@ -295,31 +297,38 @@ export function validateComponentName (name: string) { // 判断组件 name 是�
  * Ensure all props option syntax are normalized into the
  * Object-based format.
  */
+// 将 props 选项规范为对象的形式
 function normalizeProps (options: Object, vm: ?Component) {
   const props = options.props
   if (!props) return
   const res = {}
   let i, val, name
+  // 使用数组的写法
   if (Array.isArray(props)) {
     i = props.length
     while (i--) {
       val = props[i]
       if (typeof val === 'string') {
+        // 将字符串中横线转成驼峰
         name = camelize(val)
         res[name] = { type: null }
       } else if (process.env.NODE_ENV !== 'production') {
+        // 使用数组写法时 props 必须是字符串
         warn('props must be strings when using array syntax.')
       }
     }
   } else if (isPlainObject(props)) {
+    // 使用对象的写法
     for (const key in props) {
       val = props[key]
       name = camelize(key)
+      // 检测 props 每一个键的值，如果值是一个纯对象那么直接使用，否则将值作为 type 的值
       res[name] = isPlainObject(val)
         ? val
         : { type: val }
     }
   } else if (process.env.NODE_ENV !== 'production') {
+    // 开发环境中，如果 props 既不是数组也不是对象，报错
     warn(
       `Invalid value for option "props": expected an Array or an Object, ` +
       `but got ${toRawType(props)}.`,
@@ -330,17 +339,83 @@ function normalizeProps (options: Object, vm: ?Component) {
 }
 
 /**
+ * inject 的用法
+ *
+ *
+ * // 子组件
+const ChildComponent = {
+  template: '<div>child component</div>',
+  created: function () {
+    // 这里的 data 是父组件注入进来的
+    console.log(this.data)
+  },
+  inject: ['data']
+}
+
+// 父组件
+var vm = new Vue({
+  el: '#app',
+  // 向子组件提供数据
+  provide: {
+    data: 'test provide'
+  },
+  components: {
+    ChildComponent
+  }
+})
+
+子组件 inject 除了字符串数组的写法，还可以用对象写法，相当于为注入的数据提供一个别名
+
+// 子组件
+const ChildComponent = {
+  template: '<div>child component</div>',
+  created: function () {
+    console.log(this.d)
+  },
+  // 对象的语法类似于允许我们为注入的数据声明一个别名
+  inject: {
+    d: 'data'
+  }
+}
+
+ */
+
+/**
  * Normalize all injections into Object-based format
  */
+// 规范化 inject 选项为对象形式
 function normalizeInject (options: Object, vm: ?Component) {
   const inject = options.inject
   if (!inject) return
   const normalized = options.inject = {}
+  // 数组写法
   if (Array.isArray(inject)) {
     for (let i = 0; i < inject.length; i++) {
       normalized[inject[i]] = { from: inject[i] }
     }
   } else if (isPlainObject(inject)) {
+    // 对象写法
+    /**
+     * 下面这样的 inject 写法：
+     *
+     * let data1 = 'data1'
+
+      // 这里为简写，这应该写在Vue的选项中
+      inject: {
+        data1,
+        d2: 'data2',
+        data3: { someProperty: 'someValue' }
+      }
+
+      最终被规范化为下面的形式：
+
+      inject: {
+        'data1': { from: 'data1' },
+        'd2': { from: 'data2' },
+        'data3': { from: 'data3', someProperty: 'someValue' }
+      }
+
+     */
     for (const key in inject) {
       const val = inject[key]
       normalized[key] = isPlainObject(val)
@@ -348,6 +423,7 @@ function normalizeInject (options: Object, vm: ?Component) {
         : { from: val }
     }
   } else if (process.env.NODE_ENV !== 'production') {
+    // 开发环境下，inject 既不是数组也不是对象，报错
     warn(
       `Invalid value for option "inject": expected an Array or an Object, ` +
       `but got ${toRawType(inject)}.`,
@@ -357,13 +433,39 @@ function normalizeInject (options: Object, vm: ?Component) {
 }
 
 /**
+ * 指令的两种写法，对象写法和函数写法
+<div id="app" v-test1 v-test2>{{test}}</div>
+
+var vm = new Vue({
+  el: '#app',
+  data: {
+    test: 1
+  },
+  // 注册两个局部指令
+  directives: {
+    test1: {
+      bind: function () {
+        console.log('v-test1')
+      }
+    },
+    test2: function () {
+      console.log('v-test2')
+    }
+  }
+})
+ */
+
+
+/**
  * Normalize raw function directives into object format.
  */
+// 规范化 directives 为对象形式
 function normalizeDirectives (options: Object) {
   const dirs = options.directives
   if (dirs) {
     for (const key in dirs) {
       const def = dirs[key]
+      // 如果是函数，转换成对象的形式
       if (typeof def === 'function') {
         dirs[key] = { bind: def, update: def }
       }
@@ -387,20 +489,43 @@ function assertObjectType (name: string, value: any, vm: ?Component) {
  */
 /**
  * 合并两个选项，出现相同配置项时，子选项会覆盖父选项的配置
+ * 第一，这个函数将会产生一个新的对象；第二，这个函数不仅仅在实例化对象(即_init方法中)的时候用到，在继承(Vue.extend)中也有用到，所以这个函数应该是一个用来合并两个选项对象为一个新对象的通用程序。
  */
 export function mergeOptions (
   parent: Object,
   child: Object,
   vm?: Component
 ): Object {
+  // 开发环境下检查 components 中所有组件名字是否合法
   if (process.env.NODE_ENV !== 'production') {
     checkComponents(child)
   }
 
+  // child 参数除了是普通的选项对象外，还可以是一个函数，如果是函数的话就取该函数的 options 静态属性作为新的 child
+  // Vue 构造函数本身就拥有这个属性，其实通过 Vue.extend 创造出来的子类也是拥有这个属性的。所以这就允许我们在进行选项合并的时候，去合并一个 Vue 实例构造者的选项了。
   if (typeof child === 'function') {
     child = child.options
   }
-  // 标准化 props、inject、directive 选项，方便后续程序的处理
+  // 规范化 props、inject、directive 选项，方便后续程序的处理
+  /**
+   * 以 props 为例，props可以像下面这样用数组：
+   *
+   *  const ChildComponent = {
+        props: ['someData']
+      }
+
+      也可以像下面这样用对象：
+
+      const ChildComponent = {
+        props: {
+          someData: {
+            type: Number,
+            default: 0
+          }
+        }
+      }
+      规范化就是将用户用不同语法提供的选项规范成同一种形式
+   */
   normalizeProps(child, vm)
   normalizeInject(child, vm)
   normalizeDirectives(child)
