@@ -45,7 +45,7 @@ export class Observer {
 
   constructor (value: any) {
     this.value = value
-    // 实例话一个 dep
+    // 这个 dep 负责对象变更通知，新增或删除属性，也就是 $set 和 $delete 之后手动调用 ob.dep.notify()
     this.dep = new Dep()
     this.vmCount = 0
     // 在 value 对象上设置 __ob__ 属性，enumerable 为 false，保证这个私有属性不会被 this.walk 遍历到
