@@ -58,6 +58,16 @@ export function initMixin (Vue: Class<Component>) {
        * 3. 这里的根组件的情况
        *
        */
+      // 当 new 一个 vue 实例的时候，如果用户传入了自定义的 option，则最终会使用默认的合并策略，被合并到 $options 上
+      /**
+       *new Vue({
+          customOption: 'foo',
+          created: function () {
+            console.log(this.$options.customOption) // => 'foo'
+          }
+        })
+       */
+      // 另外，我们可以在 Vue.config.optionMergeStrategies 中设置针对自定义 option 的自定义合并策略
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
         options || {}, // 用户 new Vue 的时候传入的 options
@@ -68,6 +78,7 @@ export function initMixin (Vue: Class<Component>) {
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
       // 设置代理，将 vm 实例上的属性代理到 vm._renderProxy
+      // initProxy 的目的，就是设置渲染函数的作用域代理，其目的是为我们提供更好的提示信息
       initProxy(vm)
     } else {
       vm._renderProxy = vm
