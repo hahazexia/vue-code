@@ -92,7 +92,7 @@ export function initMixin (Vue: Class<Component>) {
      * 而是子组件本身，也就是说事件的派发和监听者都是子组件本身，和父组件无关。最后触发和监听会变成 this.$emit() 和 this.$on() 的形式
      */
     initEvents(vm)
-    // 1. 解析组件的插槽信息，得到 vm.$slot，2. 处理渲染函数，定义 this._c  就是 createElement 方法，即 h 函数
+    // 1. 解析组件的插槽信息，得到 vm.$slot，2. 处理渲染函数，定义 this._c  就是 createElement 方法，即 h 函数 3. vm.$attrs vm.listeners
     initRender(vm)
     callHook(vm, 'beforeCreate') // 调用 beforeCreate 生命周期函数
     // 初始化组件的 inject 配置项，得到 result[key] = val 形式的配置对象，然后对结果数据进行响应式处理，并代理每个 key 到 vm 实例

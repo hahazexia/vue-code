@@ -29,20 +29,32 @@ export function setActiveInstance(vm: Component) { // 为全局变量 activeInst
   }
 }
 
+// Vue 给我们提供了 parent 选项，使得我们可以手动指定一个组件的父实例，但在一般情况下我们并不会手动指定 parent 选项，但是子组件依然能够正确地找到它的父实例，这说明 Vue 在寻找父实例的时候是自动检测的。
 export function initLifecycle (vm: Component) {
+  // 定义 options，它是 vm.$options 的引用，后面的代码使用的都是 options 常量
   const options = vm.$options
 
-  // locate first non-abstract parent
-  let parent = options.parent // 父组件
+  // locate first non-abstract parent (查找第一个非抽象的父组件)
+// 定义 parent，它引用当前实例的父实例
+  let parent = options.parent
+  // 如果当前实例有父组件，且当前实例不是抽象的
+  // 抽象组件就是不渲染 dom 的组件：例如 keep-alive 或者 transition，他们也不会出现在父子关系的路径上
+  // 这里下面循环去找上层的真正父级实例（非抽象的）的原因是要将当前实例添加到父级的 $children 属性里
   if (parent && !options.abstract) {
+    // 使用 while 循环查找第一个非抽象的父组件
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }
-    parent.$children.push(vm) // vm 是子组件，push 到父组件的$children中
+    // 经过上面的 while 循环后，parent 应该是一个非抽象的组件，将它作为当前实例的父级，所以将当前实例 vm 添加到父级的 $children 属性里
+    parent.$children.push(vm)
   }
 
-  vm.$parent = parent // 子组件$parent指向父组件
+// 设置当前实例的 $parent 属性，指向父级
+  vm.$parent = parent
+  // 设置 $root 属性，有父级就是用父级的 $root，否则 $root 指向自身
   vm.$root = parent ? parent.$root : vm
+  // 上面代码的作用：将当前实例添加到父实例的 $children 属性里，并设置当前实例的 $parent 指向父实例
+
 
   vm.$children = []
   vm.$refs = {}
@@ -58,7 +70,7 @@ export function initLifecycle (vm: Component) {
 export function lifecycleMixin (Vue: Class<Component>) {
 
   /**
- * 负责更新页面，页面首次渲染和后续更新的入口位置，也是 patch 的入口位置 
+ * 负责更新页面，页面首次渲染和后续更新的入口位置，也是 patch 的入口位置
  */
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
@@ -377,6 +389,14 @@ export function callHook (vm: Component, hook: string) {
   }
    // Hook Event，如果设置了 Hook Event，比如 <comp @hook:mounted="method" />，则通过 $emit 触发该事件
   // vm._hasHookEvent 标识组件是否有 hook event，这是在 vm.$on 中处理组件自定义事件时设置的
+  /**
+   * <child
+        @hook:beforeCreate="handleChildBeforeCreate"
+        @hook:created="handleChildCreated"
+        @hook:mounted="handleChildMounted"
+        @hook:生命周期钩子
+      />
+   */
   if (vm._hasHookEvent) {
     vm.$emit('hook:' + hook)
   }
