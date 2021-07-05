@@ -11,7 +11,7 @@ import { createCompilerCreator } from './create-compiler'
 export const createCompiler = createCompilerCreator(
   /**
  * 在这之前做的所有的事情，只有一个目的，就是为了构建平台特有的编译选项（options），比如 web 平台
- * 
+ *
  * 1、将 html 模版解析成 ast
  * 2、对 ast 树进行静态标记
  * 3、将 ast 生成渲染函数

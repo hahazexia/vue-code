@@ -31,8 +31,12 @@ const strats = config.optionMergeStrategies
 /**
  * Options with restrictions
  */
+
+// el 和 propsData 的合并不论是开发环境还是生产环境都使用默认策略，只是在开发环境下增加了一个警告提示
 if (process.env.NODE_ENV !== 'production') {
   strats.el = strats.propsData = function (parent, child, vm, key) {
+    // 这里的 vm 参数是调用 mergeOptions 时传入的，mergeOptions 除了 vue 实例初始化的时候调用，还会在 Vue.extend() 创建子类的时候调用，创建字类的时候是不会传递 vm 参数的
+    // 在策略函数中通过判断是否存在 vm 就能够得知 mergeOptions 是在实例化时调用(使用 new 操作符走 _init 方法)还是在继承时调用(Vue.extend)，而子组件的实现方式就是通过实例化子类完成的，子类又是通过 Vue.extend 创造出来的，所以我们就能通过对 vm 的判断而得知是否是子组件了。
     if (!vm) {
       warn(
         `option "${key}" can only be used during instance ` +
@@ -46,7 +50,10 @@ if (process.env.NODE_ENV !== 'production') {
 /**
  * Helper that recursively merges two data objects together.
  */
+// to 对应的是 childVal 产生的纯对象，from 对应 parentVal 产生的纯对象
+// 将 from 对象的属性混合到 to 对象中，也可以说是将 parentVal 对象的属性混合到 childVal 中，最后返回的是处理后的 childVal 对象
 function mergeData (to: Object, from: ?Object): Object {
+  // 没有 from 直接返回 to
   if (!from) return to
   let key, toVal, fromVal
 
@@ -54,14 +61,17 @@ function mergeData (to: Object, from: ?Object): Object {
     ? Reflect.ownKeys(from)
     : Object.keys(from)
 
+  // 遍历 from 的 key
   for (let i = 0; i < keys.length; i++) {
     key = keys[i]
     // in case the object is already observed...
     if (key === '__ob__') continue
     toVal = to[key]
     fromVal = from[key]
+    // 如果 from 对象中的 key 不在 to 对象中，则使用 set 函数为 to 对象设置 key 及相应的值
     if (!hasOwn(to, key)) {
       set(to, key, fromVal)
+      // 如果 from 对象中的 key 也在 to 对象中，且这两个属性的值都是纯对象则递归进行深度合并
     } else if (
       toVal !== fromVal &&
       isPlainObject(toVal) &&
@@ -69,6 +79,7 @@ function mergeData (to: Object, from: ?Object): Object {
     ) {
       mergeData(toVal, fromVal)
     }
+    // 其他情况什么都不做
   }
   return to
 }
@@ -81,8 +92,22 @@ export function mergeDataOrFn (
   childVal: any,
   vm?: Component
 ): ?Function {
+  // 没有 vm 实例，说明是 Vue.extend()，处理的是子组件的 data 选项合并
   if (!vm) {
     // in a Vue.extend merge, both should be functions
+    // Vue.extend({}) 如果我们使用 Vue.extend 函数创建子类的时候传递的子组件选项是一个空对象，即没有 data 选项，那么此时 parentVal 实际上就是 Vue.options，由于 Vue.options 上也没有 data 这个属性，所以压根就不会执行 strats.data 策略函数，也就更不会执行 mergeDataOrFn 函数，有的同学可能会问：既然都没有执行，那么这里的 return parentVal 是不是多余的？当然不多余，因为 parentVal 存在有值的情况。那么什么时候才会出现 childVal 不存在但是 parentVal 存在的情况呢？请看如下代码
+    /**
+     * const Parent = Vue.extend({
+          data: function () {
+            return {
+              test: 1
+            }
+          }
+        })
+
+        const Child = Parent.extend({})
+     */
+    // childVal 和 parentVal 必定会有其一，否则便不会执行 strats.data 策略函数，所以上面判断的意思就是：如果没有子选项则使用父选项，没有父选项就直接使用子选项，且这两个选项都能保证是函数，如果父子选项同时存在，则代码继续进行
     if (!childVal) {
       return parentVal
     }
@@ -94,13 +119,15 @@ export function mergeDataOrFn (
     // merged result of both functions... no need to
     // check if parentVal is a function here because
     // it has to be a function to pass previous merges.
+    // strats.data 在处理子组件 data 合并时返回的是一个函数
     return function mergedDataFn () {
+      // mergeData 接收两个纯对象
       return mergeData(
         typeof childVal === 'function' ? childVal.call(this, this) : childVal,
         typeof parentVal === 'function' ? parentVal.call(this, this) : parentVal
       )
     }
-  } else {
+  } else {// 处理非子组件的 data 合并也返回一个函数
     return function mergedInstanceDataFn () {
       // instance merge
       const instanceData = typeof childVal === 'function'
@@ -110,6 +137,7 @@ export function mergeDataOrFn (
         ? parentVal.call(vm, vm)
         : parentVal
       if (instanceData) {
+        // mergeData 接收两个纯对象
         return mergeData(instanceData, defaultData)
       } else {
         return defaultData
@@ -118,13 +146,85 @@ export function mergeDataOrFn (
   }
 }
 
+// data 选项的合并策略
+// data 选项最终被 mergeOptions 函数处理成了一个函数，当合并处理的是子组件的选项时 data 函数可能是以下几种之一：
+
+// 1. data 选项本身，一个函数
+
+/**
+ * 因为如下代码，mergeDataOrFn 在处理子组件 data 合并的时候，是有可能直接返回 childVal 或者 parentVal 本身
+ *
+ *export function mergeDataOrFn (
+    parentVal: any,
+    childVal: any,
+    vm?: Component
+  ): ?Function {
+
+    if (!vm) {
+
+      if (!childVal) {
+        return parentVal
+      }
+      if (!parentVal) {
+        return childVal
+      }
+      ...
+    } else {
+      ...
+    }
+  }
+ */
+
+  // 2. 合并子组件 data 时返回 mergedDataFn 函数，合并非子组件时返回 mergedInstanceDataFn 函数
+  /**
+   * export function mergeDataOrFn (
+      parentVal: any,
+      childVal: any,
+      vm?: Component
+    ): ?Function {
+      if (!vm) {
+
+        ...
+
+        return function mergedDataFn () {
+          return mergeData(
+            typeof childVal === 'function' ? childVal.call(this, this) : childVal,
+            typeof parentVal === 'function' ? parentVal.call(this, this) : parentVal
+          )
+        }
+
+      } else {
+
+        return function mergedInstanceDataFn () {
+          // instance merge
+          const instanceData = typeof childVal === 'function'
+            ? childVal.call(vm, vm)
+            : childVal
+          const defaultData = typeof parentVal === 'function'
+            ? parentVal.call(vm, vm)
+            : parentVal
+          if (instanceData) {
+            return mergeData(instanceData, defaultData)
+          } else {
+            return defaultData
+          }
+        }
+      }
+    }
+   */
+
+  // 综上，无论最终合并的 data 是什么函数，这些函数的执行结果就是最终的数据 data
+
 strats.data = function (
   parentVal: any,
   childVal: any,
   vm?: Component
 ): ?Function {
+
+  // 通过 el 和 propsData 的分析，我们知道 mergeOptions 的时候如果没有传递第三个参数 vm ，则说明此时是 Vue.extend() 在扩展子组件
   if (!vm) {
     if (childVal && typeof childVal !== 'function') {
+      // 子组件的 data 选项必须是一个函数
       process.env.NODE_ENV !== 'production' && warn(
         'The "data" option should be a function ' +
         'that returns a per-instance value in component ' +
@@ -143,6 +243,23 @@ strats.data = function (
 /**
  * Hooks and props are merged as arrays.
  */
+// 生命周期函数的合并策略
+// 从源码看可以知道声明周期函数是可以写成数组形式的，数组里的元素是函数
+/**
+ * new Vue({
+    created: [
+      function () {
+        console.log('first')
+      },
+      function () {
+        console.log('second')
+      },
+      function () {
+        console.log('third')
+      }
+    ]
+  })
+ */
 function mergeHook (
   parentVal: ?Array<Function>,
   childVal: ?Function | ?Array<Function>
@@ -154,6 +271,15 @@ function mergeHook (
         ? childVal
         : [childVal]
     : parentVal // 子没有定义，直接取父
+    /**
+     * return (是否有 childVal，即判断组件的选项中是否有对应名字的生命周期钩子函数)
+      ? 如果有 childVal 则判断是否有 parentVal
+        ? 如果有 parentVal 则使用 concat 方法将二者合并为一个数组
+        : 如果没有 parentVal 则判断 childVal 是不是一个数组
+          ? 如果 childVal 是一个数组则直接返回
+          : 否则将其作为数组的元素，然后返回数组
+      : 如果没有 childVal 则直接返回 parentVal
+     */
   return res
     ? dedupeHooks(res)
     : res
@@ -186,6 +312,34 @@ function mergeAssets (
   vm?: Component,
   key: string
 ): Object {
+  // 以 parentVal 为原型创建对象 res，然后判断是否有 childVal，如果有的话使用 extend 函数将 childVal 上的属性混合到 res 对象上并返回。如果没有 childVal 则直接返回 res
+  /**
+   * Vue.options = {
+      components: {
+        KeepAlive,
+        Transition,
+        TransitionGroup
+      },
+      directives: Object.create(null),
+      directives:{
+        model,
+        show
+      },
+      filters: Object.create(null),
+      _base: Vue
+    }
+
+    这里的 parentVal 就是 Vue.options，最后合并后的结果如下
+
+    res = {
+      ChildComponent
+      __proto__: {
+        KeepAlive,
+        Transition,
+        TransitionGroup
+      }
+    }
+   */
   const res = Object.create(parentVal || null)
   if (childVal) {
     process.env.NODE_ENV !== 'production' && assertObjectType(key, childVal, vm)
@@ -205,6 +359,8 @@ ASSET_TYPES.forEach(function (type) {
  * Watchers hashes should not overwrite one
  * another, so we merge them as arrays.
  */
+// watch 选项合并策略
+// 被合并处理后的 watch 选项下的每个键值，有可能是一个数组，也有可能是一个函数
 strats.watch = function (
   parentVal: ?Object,
   childVal: ?Object,
@@ -212,26 +368,39 @@ strats.watch = function (
   key: string
 ): ?Object {
   // work around Firefox's Object.prototype.watch...
+  // 火狐浏览器中实现了 Object.prototype.watch 实例方法，所以如果和原生 watch 方法相等，则说明用户没有设置 watch
   if (parentVal === nativeWatch) parentVal = undefined
   if (childVal === nativeWatch) childVal = undefined
   /* istanbul ignore if */
+  // 如果没有 childVal，就使用 parentVal 为原型创建对象
   if (!childVal) return Object.create(parentVal || null)
   if (process.env.NODE_ENV !== 'production') {
     assertObjectType(key, childVal, vm)
   }
+  // 如果没有 parentVal ，直接使用用户提供的 watch 选项
   if (!parentVal) return childVal
+
+  // 定义 ret 常量，其值为一个对象
   const ret = {}
+  // 将 parentVal 的属性混合到 ret 中，后面处理的都将是 ret 对象，最后返回的也是 ret 对象
   extend(ret, parentVal)
+  // 遍历 childVal 检测子选项中的值是否也在父选项中，如果在的话将父子选项合并到一个数组，否则直接把子选项变成一个数组返回
   for (const key in childVal) {
+    // 由于遍历的是 childVal，所以 key 是子选项的 key，父选项中未必能获取到值，所以 parent 未必有值
     let parent = ret[key]
+    // child 是肯定有值的，因为遍历的就是 childVal 本身
     const child = childVal[key]
+    // 这个 if 分支的作用就是如果 parent 存在，就将其转为数组
     if (parent && !Array.isArray(parent)) {
       parent = [parent]
     }
     ret[key] = parent
+    // 最后，如果 parent 存在，此时的 parent 应该已经被转为数组了，所以直接将 child concat 进去
       ? parent.concat(child)
+      // 如果 parent 不存在，直接将 child 转为数组返回
       : Array.isArray(child) ? child : [child]
   }
+  // 最后返回新的 ret 对象
   return ret
 }
 
@@ -247,21 +416,28 @@ strats.computed = function (
   vm?: Component,
   key: string
 ): ?Object {
+  // 如果存在 childVal，那么在非生产环境下要检查 childVal 的类型
   if (childVal && process.env.NODE_ENV !== 'production') {
     assertObjectType(key, childVal, vm)
   }
+  // parentVal 不存在的情况下直接返回 childVal
   if (!parentVal) return childVal
+  // 如果 parentVal 存在，则创建 ret 对象，然后分别将 parentVal 和 childVal 的属性混合到 ret 中，注意： childVal 将覆盖 parentVal 的同名属性
   const ret = Object.create(null)
   extend(ret, parentVal)
   if (childVal) extend(ret, childVal)
+  // 最后返回 ret 对象。
   return ret
 }
+
+// provide 的合并策略和 data 相同
 strats.provide = mergeDataOrFn
 
 /**
  * Default strategy.
  */
-const defaultStrat = function (parentVal: any, childVal: any): any { // 默认的合并策略
+ // 默认的合并策略 子选项有就用子选项，没有就用父选项
+const defaultStrat = function (parentVal: any, childVal: any): any {
   return childVal === undefined
     ? parentVal
     : childVal
@@ -539,6 +715,8 @@ export function mergeOptions (
   // mergeOptions 处理过的对象会含有 _base 属性
   if (!child._base) {
     // { extend } 和 mixin 很类似，让你基于一个组件去扩展另外一个，不需要使用 Vue.extend
+    // 任何写在 mixins 中的选项，都会使用 mergeOptions 中相应的合并策略进行处理，这就是 mixins 的实现方式
+    // 对于 extends 选项，与 mixins 相同，甚至由于 extends 选项只能是一个对象，而不能是数组，反而要比 mixins 的实现更为简单，连遍历都不需要。
     if (child.extends) {
       parent = mergeOptions(parent, child.extends, vm)
     }

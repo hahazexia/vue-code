@@ -58,6 +58,16 @@ export function initMixin (Vue: Class<Component>) {
        * 3. 这里的根组件的情况
        *
        */
+      // 当 new 一个 vue 实例的时候，如果用户传入了自定义的 option，则最终会使用默认的合并策略，被合并到 $options 上
+      /**
+       *new Vue({
+          customOption: 'foo',
+          created: function () {
+            console.log(this.$options.customOption) // => 'foo'
+          }
+        })
+       */
+      // 另外，我们可以在 Vue.config.optionMergeStrategies 中设置针对自定义 option 的自定义合并策略
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
         options || {}, // 用户 new Vue 的时候传入的 options
@@ -68,6 +78,7 @@ export function initMixin (Vue: Class<Component>) {
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
       // 设置代理，将 vm 实例上的属性代理到 vm._renderProxy
+      // initProxy 的目的，就是设置渲染函数的作用域代理，其目的是为我们提供更好的提示信息
       initProxy(vm)
     } else {
       vm._renderProxy = vm
@@ -81,7 +92,7 @@ export function initMixin (Vue: Class<Component>) {
      * 而是子组件本身，也就是说事件的派发和监听者都是子组件本身，和父组件无关。最后触发和监听会变成 this.$emit() 和 this.$on() 的形式
      */
     initEvents(vm)
-    // 1. 解析组件的插槽信息，得到 vm.$slot，2. 处理渲染函数，定义 this._c  就是 createElement 方法，即 h 函数
+    // 1. 解析组件的插槽信息，得到 vm.$slot，2. 处理渲染函数，定义 this._c  就是 createElement 方法，即 h 函数 3. vm.$attrs vm.listeners
     initRender(vm)
     callHook(vm, 'beforeCreate') // 调用 beforeCreate 生命周期函数
     // 初始化组件的 inject 配置项，得到 result[key] = val 形式的配置对象，然后对结果数据进行响应式处理，并代理每个 key 到 vm 实例
