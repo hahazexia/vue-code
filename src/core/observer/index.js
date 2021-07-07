@@ -38,6 +38,24 @@ export function toggleObserving (value: boolean) {
  * 观察者类，会被附加到每个被观察的对象上，value.__ob__ = this
  * 而对象的各个属性则会被转换成 getter/setter，并收集依赖和通知更新
  */
+/**
+ * const data = {
+      a: 1
+    }
+
+    这样的对象被 Observer 处理后，变成如下
+
+    const data = {
+      a: 1,
+      // __ob__ 是不可枚举的属性
+      __ob__: {
+        value: data, // value 属性指向 data 数据对象本身，这是一个循环引用
+        dep: dep实例对象, // new Dep()
+        vmCount: 0
+      }
+    }
+
+ */
 export class Observer {
   value: any;
   dep: Dep;
@@ -78,7 +96,7 @@ export class Observer {
    * value type is Object.
    */
   /**
-   * 遍历对象上的每个 key，为每个 key 设置响应式
+   * 遍历对象上的每个可枚举的 key，为每个 key 设置响应式
    * 仅当值为对象时才会走这里
    */
   walk (obj: Object) {
@@ -136,6 +154,7 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  * 响应式处理的真正入口
  * 为对象创建观察者实例，如果对象已经被观察过，则返回已有的观察者实例，否则创建新的观察者实例
  * @param {*} value 对象 => {}
+ * @param asRootData 是否是根上的数据，所谓的根数据对象就是 data 对象
  */
 export function observe (value: any, asRootData: ?boolean): Observer | void {
   if (!isObject(value) || value instanceof VNode) {
@@ -143,8 +162,9 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     return
   }
   let ob: Observer | void
+
+  // 如果 value 对象上存在 __ob__ 属性，则表示已经做过观察了，直接返回 __ob__ 属性
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
-    // 如果 value 对象上存在 __ob__ 属性，则表示已经做过观察了，直接返回 __ob__ 属性
     ob = value.__ob__
   } else if (
     shouldObserve &&
@@ -153,6 +173,13 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     Object.isExtensible(value) &&
     !value._isVue
   ) {
+    // 这些条件都满足的情况下才会创建 Observer 实例
+    // shouldObserve 开关打开
+    // !isServerRendering() 不是服务端渲染
+    // (Array.isArray(value) || isPlainObject(value)) value 是对象或者数组
+    // Object.isExtensible(value) value 必须是可扩展的。三个方法都可以使得一个对象变得不可扩展：Object.preventExtensions()、Object.freeze() 以及 Object.seal()
+    // !value._isVue value不是 vue 实例
+
     // 创建观察者实例
     ob = new Observer(value)
   }
@@ -170,6 +197,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
  *   1、在第一次读取时收集依赖，比如执行 render 函数生成虚拟 DOM 时会有读取操作
  *   2、在更新时设置新值并通知依赖更新
  */
+// shallow 参数，是否深度监测
 export function defineReactive (
   obj: Object,
   key: string,
@@ -187,21 +215,81 @@ export function defineReactive (
   }
 
   // cater for pre-defined getter/setters
-  // 记录 getter 和 setter，获取 val 值
+  // 记录原始 getter 和 setter，获取 val 值
+  //一个对象的属性很可能已经是一个访问器属性了，所以该属性很可能已经存在 get 或 set 方法。由于接下来会使用 Object.defineProperty 函数重新定义属性的 setter/getter，这会导致属性原有的 set 和 get 方法被覆盖，所以要将属性原有的 setter/getter 缓存，并在重新定义的 set 和 get 方法中调用缓存的函数，从而做到不影响属性的原有读写操作。
+
   const getter = property && property.get
   const setter = property && property.set
+
+  // https://github.com/vuejs/vue/pull/7302
+  // 为什么要这样判断：(!getter || setter)
+  // 因为有可能用户定义的 data 中的属性原本就是拥有 getter 的，如下：
+  /**
+   *  const data = {}
+      Object.defineProperty(data, 'getterProp', {
+        enumerable: true,
+        configurable: true,
+        get: () => {
+          return {
+            a: 1
+          }
+        }
+      })
+
+      const ins = new Vue({
+        data,
+        watch: {
+          'getterProp.a': () => {
+            console.log('这句话不会输出')
+          }
+        }
+      })
+
+      属性 getterProp 是一个拥有 get 拦截器函数的访问器属性，而当 Vue 发现该属性拥有原本的 getter 时，是不会深度观测的。
+
+      那么为什么当属性拥有自己的 getter 时就不会对其深度观测了呢？有两方面的原因，
+      第一：由于当属性存在原本的 getter 时在深度观测之前不会取值，所以在深度观测语句执行之前取不到属性值从而无法深度观测。
+      第二：之所以在深度观测之前不取值是因为属性原本的 getter 由用户定义，用户可能在 getter 中做任何意想不到的事情，这么做是出于避免引发不可预见行为的考虑。
+
+   */
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key]
   }
   // 递归调用，处理 val 即 obj[key] 的值为对象的情况，保证对象中的所有 key 都被观察
   let childOb = !shallow && observe(val)
 
+  /**
+   *
+    const data = {
+      a: {
+        b: 1
+      }
+    }
+    observe(data)
+
+    经过处理后变成如下数据：
+
+    const data = {
+      a: {
+        b: 1
+        __ob__: {a, dep, vmCount}
+      }
+      __ob__: {data, dep, vmCount}
+    }
+
+    // 属性 a 通过 setter/getter 通过闭包引用着 dep 和 childOb
+    // 属性 b 通过 setter/getter 通过闭包引用着 dep 和 childOb
+    // 这里需要注意 a 通过闭包引用的 childOb 就是 data.a.__ob__
+    // 而 b 通过闭包引用的 childOb 是 undefined
+
+   */
   // 响应式核心
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
-    // get 拦截对 obj[key] 的读取操作，进行依赖收集，并返回值
+    // get 拦截对 obj[key] 的读取操作，做两件事：1.返回正确的属性值，2.收集依赖
     get: function reactiveGetter () {
+      // 正确地返回属性值
       const value = getter ? getter.call(obj) : val
       /**
        * Dep.target 为 Dep 类的一个静态属性，值为 watcher，在实例化 Watcher 时会被设置
@@ -212,7 +300,24 @@ export function defineReactive (
       if (Dep.target) {
         // 依赖收集，在 dep 中添加 watcher，也在 watcher 中添加 dep
         dep.depend()
-        // childOb 表示对象中嵌套对象的观察者对象，如果存在也对其进行依赖收集
+        // 对于上面举的例子，对于属性 a 来说，childOb 就是 data.a.__ob__
+        // 所以 childOb.dep 就是 data.a.__ob__.dep
+        // 也就是说依赖不仅要收集到 a 自己的 dep 里，也要收集到 a.__ob__.dep 里
+        // 这样做的原因是因为 a.dep 和 a.__ob__.dep 里的依赖，触发更新的时机是不同的
+        // 第一个触发的时机就是当 a 属性的值被改变的时候，即触发 a 的 setter 的 dep.notify()
+        // 而第二个触发的时机是 $set 或 Vue.set 给对象添加新属性时触发
+
+        /**
+         * Vue.set(data.a, 'c', 1)
+         * 这样设置新的属性 c 后，之所以可以触发更新，是因为其中触发了 data.a.__ob__.dep.notify()，Vue.set 代码简化后如下：
+         *
+         * Vue.set = function (obj, key, val) {
+            defineReactive(obj, key, val)
+            obj.__ob__.dep.notify()
+          }
+
+          所以 __ob__ 属性以及 __ob__.dep 的主要作用是为了添加、删除属性时有能力触发依赖更新，而这就是 Vue.set 或 Vue.delete 的原理。
+         */
         if (childOb) {
           childOb.dep.depend()
           // 如果是 obj[key] 是 数组，则触发数组响应式
@@ -224,17 +329,19 @@ export function defineReactive (
       }
       return value
     },
-    // set 拦截对 obj[key] 的设置新值的操作
+    // set 拦截对 obj[key] 的设置新值的操作，做了两件事：1.设置新值，2.触发依赖更新
     set: function reactiveSetter (newVal) {
       // 旧的 obj[key]
       const value = getter ? getter.call(obj) : val
-      // 如果新老值一样，则直接 return，不触发响应式更新过程
       /* eslint-disable no-self-compare */
+      // 如果新老值一样，则直接 return，不触发响应式更新过程（判断了新老值都是 NaN 的情况）
       if (newVal === value || (newVal !== newVal && value !== value)) {
         return
       }
       /* eslint-enable no-self-compare */
       if (process.env.NODE_ENV !== 'production' && customSetter) {
+        // customSetter 用来打印辅助信息
+        // initRender 中在定义 vm.$attrs 和 vm.$listeners 这两个属性的时候传递了这个参数
         customSetter()
       }
       // setter 不存在说明该属性是一个只读属性，直接 return
@@ -246,7 +353,7 @@ export function defineReactive (
       } else {
         val = newVal
       }
-      // 对新值进行观察，让新值也是响应式的
+      // 需要深度监测的时候，对新值进行观察，让新值也是响应式的，并且覆盖 childOb 为新的 __ob__ 对象
       childOb = !shallow && observe(newVal)
       // 当响应式数据更新时，依赖通知更新
       dep.notify()
@@ -262,7 +369,7 @@ export function defineReactive (
 /**
  * 通过 Vue.set 或者 this.$set 方法给 target 的指定 key 设置值 val
  * 如果 target 是对象，并且 key 原本不存在，则为新 key 设置响应式，然后执行依赖通知
- * 
+ *
  * {
  *  data() {
  *    return {
@@ -294,6 +401,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     return val
   }
   // 更新对象已有属性，Vue.set(obj, key, val)，执行更新即可
+  // https://github.com/vuejs/vue/issues/6845#issuecomment-407390645
   if (key in target && !(key in Object.prototype)) {
     target[key] = val
     return val
@@ -301,7 +409,9 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
   const ob = (target: any).__ob__ // 获取到 target 对象的 __ob__ 属性（Observer 实例）
 
   // 不能向 Vue 实例或者 $data 动态添加响应式属性，vmCount 的用处之一，
-  // this.$data 的 ob.vmCount = 1，表示根组件，其它子组件的 vm.vmCount 都是 0
+  // this.$data 的 ob.vmCount = 1，表示根数据对象，其它嵌套的子对象的 ob.vmCount 都是 0
+  // 根数据对象的 ob.vmCount = 1 ，当使用 Vue.set/$set 函数为根数据对象添加属性时，是不被允许的
+  // 因为根数据对象并不是响应式的
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -333,7 +443,7 @@ export function del (target: Array<any> | Object, key: any) {
   ) {
     warn(`Cannot delete reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
-  
+
   // target 为数组，则通过 splice 方法删除指定下标的元素
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.splice(key, 1)
@@ -341,6 +451,7 @@ export function del (target: Array<any> | Object, key: any) {
   }
   const ob = (target: any).__ob__
     // 避免删除 Vue 实例的属性或者 $data 的数据
+    // 根数据对象不是响应式的，不会触发更新
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid deleting properties on a Vue instance or its root $data ' +

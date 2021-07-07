@@ -161,10 +161,11 @@ function initProps (vm: Component, propsOptions: Object) {
 function initData (vm: Component) {
   let data = vm.$options.data
   // 保证后续处理的 data 是一个对象
+  // 如果 data 是个函数，就调用它获取到定义的属性
+  // 如果 data 的值是用 props 初始化的，所以 getData 里调用了 pushTarget() 和 popTarget() 防止收集冗余的依赖
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
-    // 如果 data 是个函数，就调用它获取到定义的属性
   if (!isPlainObject(data)) { // 如果 data 是个对象就报一个警告
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
@@ -178,6 +179,15 @@ function initData (vm: Component) {
    *   1、判重处理，data 对象上的属性不能和 props、methods 对象上的属性相同
    *   2、代理 data 对象上的属性到 vm 实例
    */
+  /**
+   * 根据 vm.$options.data 选项获取真正想要的数据（注意：此时 vm.$options.data 是函数）
+    校验得到的数据是否是一个纯对象
+    检查数据对象 data 上的键是否与 props 对象上的键冲突
+    检查 methods 对象上的键是否与 data 对象上的键冲突
+    在 Vue 实例对象上添加代理访问数据对象的同名属性
+    最后调用 observe 函数开启响应式之路
+   */
+  // 因为 data props methods 都可以通过 vm 代理直接访问，所以它们需要判重处理
   // proxy data on instance
   const keys = Object.keys(data)
   const props = vm.$options.props
@@ -201,7 +211,7 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
-      // 代理 data 中的属性到 vm 上，支持通过 this.dataKey 的形式访问
+      // 代理 data 中的属性到 vm._data 上，例如 vm.a 其实访问的是 vm._data.a
       proxy(vm, `_data`, key)
     }
   }
@@ -212,6 +222,8 @@ function initData (vm: Component) {
 
 export function getData (data: Function, vm: Component): any {
   // #7573 disable dep collection when invoking data getters
+
+  // pushTarget() popTarget () 这么做是为了防止使用 props 数据初始化 data 数据时收集冗余的依赖
   pushTarget()
   try {
     return data.call(vm, vm)

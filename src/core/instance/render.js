@@ -39,6 +39,7 @@ export function initRender (vm: Component) { // Vue.prototype._init 调用的时
   const parentData = parentVnode && parentVnode.data
 
   /* istanbul ignore else */
+  // vm.$attrs 和 vm.$listeners 定义为响应式的属性，shallow 参数是 true，表示非深度监测
   if (process.env.NODE_ENV !== 'production') {
     defineReactive(vm, '$attrs', parentData && parentData.attrs || emptyObject, () => {
       !isUpdatingChildComponent && warn(`$attrs is readonly.`, vm)
