@@ -33,6 +33,7 @@ export function initRender (vm: Component) { // Vue.prototype._init 调用的时
   // user-written render functions.
   vm.$createElement = (a, b, c, d) => createElement(vm, a, b, c, d, true)
   // 当用户手写 render 函数传入 options 时，就调用 vm.$createElement，如果 render 函数是从 template 编译而来，就使用 vm._c
+  // 区别就是用户手写的 render 函数需要做参数标准化处理，所以调用 $createElement
 
   // $attrs & $listeners are exposed for easier HOC creation.
   // they need to be reactive so that HOCs using them are always updated

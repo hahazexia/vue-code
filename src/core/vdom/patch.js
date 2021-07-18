@@ -141,7 +141,8 @@ export function createPatchFunction (backend) {
     }
 
     vnode.isRootInsert = !nested // for transition enter check
-    if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) { // 如果 vnode 是组件 vnode，则调用组件的 hook.init，就会继续创建子组件
+    if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
+      // 如果 vnode 是组件 vnode，则调用组件的 hook.init，就会继续创建子组件
       return
     }
 
@@ -164,6 +165,7 @@ export function createPatchFunction (backend) {
       }
 
       // 调用 src/platforms/web/runtime/node-ops.js 中的 createElement 方法，其实就是document.createElement创建真实 dom
+      // 创建完真实 dom 存在虚拟 dom 中，diff 的时候有用
       vnode.elm = vnode.ns
         ? nodeOps.createElementNS(vnode.ns, tag)
         : nodeOps.createElement(tag, vnode)
@@ -189,11 +191,12 @@ export function createPatchFunction (backend) {
           insert(parentElm, vnode.elm, refElm)
         }
       } else {
+        // 向下递归创建
         createChildren(vnode, children, insertedVnodeQueue)
-        // createChildren 创建子节点
         if (isDef(data)) {
           invokeCreateHooks(vnode, insertedVnodeQueue)
         }
+        // 创建完子节点，追加到父节点中
         insert(parentElm, vnode.elm, refElm)
       }
 
@@ -215,6 +218,7 @@ export function createPatchFunction (backend) {
       const isReactivated = isDef(vnode.componentInstance) && i.keepAlive
       if (isDef(i = i.hook) && isDef(i = i.init)) {
         // 得到 i 是 init 钩子函数
+        // 执行 init 组件钩子，创建组件实例并且执行挂载
         i(vnode, false /* hydrating */)
       }
       // after calling the init hook, if the vnode is a child component
@@ -222,7 +226,9 @@ export function createPatchFunction (backend) {
       // component also has set the placeholder vnode's elm.
       // in that case we can just return the element and be done.
       if (isDef(vnode.componentInstance)) {
+        // 属性 事件 样式初始化
         initComponent(vnode, insertedVnodeQueue)
+        // 组件的 dom 插入到父节点中
         insert(parentElm, vnode.elm, refElm)
         if (isTrue(isReactivated)) {
           reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm)

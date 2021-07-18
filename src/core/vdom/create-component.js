@@ -33,6 +33,7 @@ import {
 } from 'weex/runtime/recycle-list/render-component-template'
 
 // inline hooks to be invoked on component VNodes during patch
+
 const componentVNodeHooks = { // 组件钩子 init prepatch insert destroy
   init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
     if (
@@ -40,14 +41,18 @@ const componentVNodeHooks = { // 组件钩子 init prepatch insert destroy
       !vnode.componentInstance._isDestroyed &&
       vnode.data.keepAlive
     ) {
+      // 缓存组件，被包在 keep-alive 标签中的组件
       // kept-alive components, treat as a patch
       const mountedNode: any = vnode // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode)
     } else {
+      // 正常初始化
+      // 调用组件构造函数获取组件实例
       const child = vnode.componentInstance = createComponentInstanceForVnode(
         vnode,
         activeInstance
       )
+      // 调用组件 $mount 走挂载流程
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
@@ -98,6 +103,7 @@ const componentVNodeHooks = { // 组件钩子 init prepatch insert destroy
 
 const hooksToMerge = Object.keys(componentVNodeHooks)
 
+// 生成自定义组件的 vnode
 export function createComponent (
   Ctor: Class<Component> | Function | Object | void,
   data: ?VNodeData,
@@ -116,7 +122,10 @@ export function createComponent (
 
 
   // plain options object: turn it into a constructor
-  if (isObject(Ctor)) { // 如果 Ctor 是个对象，构造⼦类构造函数。Vue.extend 定义在 src/core/global-api/extend 中
+  // 如果 Ctor 是对象，说明这个组件不是全局组件，而是局部组件
+  // 全局组件这里传进来的 Ctor 就已经是 Vue.extend 处理后的子类构造函数了，因为全局组件总是在 new Vue 根组件实例初始化之前就注册了
+  if (isObject(Ctor)) {
+    // 如果 Ctor 是个对象，说明是局部注册组件，为其构造⼦类构造函数。Vue.extend 定义在 src/core/global-api/extend 中
     Ctor = baseCtor.extend(Ctor)
   }
 
@@ -150,6 +159,7 @@ export function createComponent (
     }
   }
 
+  // 组件数据 事件 指令处理
   data = data || {}
 
   // resolve constructor options in case global mixins are applied after
@@ -189,7 +199,8 @@ export function createComponent (
   }
 
   // install component management hooks onto the placeholder node
-  installComponentHooks(data) // 安装组件钩⼦函数
+  // 安装组件钩⼦函数 用于组件初始化或更新或销毁
+  installComponentHooks(data)
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
@@ -211,6 +222,7 @@ export function createComponent (
   return vnode
 }
 
+// 调用组件的子类构造函数，创建组件实例
 export function createComponentInstanceForVnode (
   vnode: any, // we know it's MountedComponentVNode but flow doesn't
   parent: any, // activeInstance in lifecycle state

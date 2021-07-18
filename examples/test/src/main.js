@@ -1,9 +1,9 @@
 import Vue from 'vue'
 import App from './App.vue'
+import ComponentA from './ComponentA.vue'
 
-Vue.config.productionTip = false
+Vue.component('ComponentA', ComponentA)
 
 new Vue({
-  render: h => h(App),
+  ...App
 }).$mount('#app')
-

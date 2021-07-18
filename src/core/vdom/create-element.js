@@ -96,9 +96,10 @@ export function _createElement (
     children = simpleNormalizeChildren(children)
   }
   let vnode, ns
-  if (typeof tag === 'string') { // 如果 tag 是普通的 html 标签, 就新建一个 vnode
+  if (typeof tag === 'string') { // 如果 tag 是字符串
     let Ctor
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
+    // 保留标签 例如 div 或 p，直接创建 vnode
     if (config.isReservedTag(tag)) {
       // platform built-in elements
       if (process.env.NODE_ENV !== 'production' && isDef(data) && isDef(data.nativeOn)) {
@@ -111,7 +112,9 @@ export function _createElement (
         config.parsePlatformTagName(tag), data, children,
         undefined, undefined, context
       )
-    } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {// 如果是 component
+    } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
+      // 如果是 component
+      // resolveAsset 从 options 中拿到组件的构造函数
       // component
       vnode = createComponent(Ctor, data, context, children, tag)
     } else { // 如果不认识的标签名
