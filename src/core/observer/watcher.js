@@ -18,6 +18,25 @@ import type { SimpleSet } from '../util/index'
 
 let uid = 0
 
+
+/**
+ * 创建一个观察者对象时，可以传递五个选项，分别是：
+
+  options.deep，用来告诉当前观察者实例对象是否是深度观测
+  我们平时在使用 Vue 的 watch 选项或者 vm.$watch 函数去观测某个数据时，可以通过设置 deep 选项的值为 true 来深度观测该数据。
+
+  options.user，用来标识当前观察者实例对象是 开发者定义的 还是 内部定义的
+  实际上无论是 Vue 的 watch 选项还是 vm.$watch 函数，他们的实现都是通过实例化 Watcher 类完成的，等到我们讲解 Vue 的 watch 选项和 vm.$watch 的具体实现时大家会看到，除了内部定义的观察者(如：渲染函数的观察者、计算属性的观察者等)之外，所有观察者都被认为是开发者定义的，这时 options.user 会自动被设置为 true。
+
+  options.computed，用来标识当前观察者实例对象是否是计算属性的观察者
+  这里需要明确的是，计算属性的观察者并不是指一个观察某个计算属性变化的观察者，而是指 Vue 内部在实现计算属性这个功能时为计算属性创建的观察者。等到我们讲解计算属性的实现时再详细说明。
+
+  options.sync，用来告诉观察者当数据变化时是否同步求值并执行回调
+  默认情况下当数据变化时不会同步求值并执行回调，而是将需要重新求值并执行回调的观察者放到一个异步队列中，当所有数据的变化结束之后统一求值并执行回调，这么做的好处有很多，我们后面会详细讲解。
+
+  options.before，可以理解为 Watcher 实例的钩子，当数据变化之后，触发更新之前，调用在创建渲染函数的观察者实例对象时传递的 before 选项。
+*/
+
 /**
  * A watcher parses an expression, collects dependencies,
  * and fires callback when the expression value changes.
@@ -84,8 +103,10 @@ export default class Watcher {
       this.getter = expOrFn
     } else {
       // this.getter = function() { return this.xx }
-      // 在 this.get 中执行 this.getter 时会触发依赖收集
-      // 待后续 this.xx 更新时就会触发响应式
+
+      // const expOrFn = 'obj.a'
+      // this.$watch(expOrFn, function () { /* 回调 */ })
+      // 类似 'obj.a' 这样调用 vm.$watch 时，解析 'obj.a' 为一个函数，返回 vm.obj.a
       this.getter = parsePath(expOrFn)
       if (!this.getter) {
         this.getter = noop

@@ -83,6 +83,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     if (!prevVnode) {
       // initial render
       // 首次渲染，即初始化页面时走这里
+      // 注意：vm.$el 会被 patch 算法的返回值重写，也就是最终生成的 dom 元素
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
     } else {
       // updates
