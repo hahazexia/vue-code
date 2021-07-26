@@ -57,7 +57,7 @@ export function initLifecycle (vm: Component) {
 
 
   vm.$children = []
-  vm.$refs = {}
+  vm.$refs = {} // 将存放 ref 引用的 dom 元素或者子组件实例
 
   vm._watcher = null
   vm._inactive = null
