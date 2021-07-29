@@ -84,6 +84,7 @@ export default {
 
   render () {
     // 通过 $slots 获取 keep-alive 包裹着的第一个子组件对象及其组件名
+    // 先获取到它的默认插槽，然后再获取到它的第一个子节点。<keep-alive> 只处理第一个子元素，所以一般和它搭配使用的有 component 动态组件或者是 router-view
     const slot = this.$slots.default
     const vnode: VNode = getFirstComponentChild(slot)
     const componentOptions: ?VNodeComponentOptions = vnode && vnode.componentOptions
