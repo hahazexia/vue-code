@@ -48,6 +48,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
     delete options.warn
 
     /* istanbul ignore if */
+    //CSP 全称是内容安全策略，如果你的策略比较严格，那么 new Function() 将会受到影响，从而不能够使用。但是将模板字符串编译成渲染函数又依赖 new Function()，所以解决方案有两个：1、放宽你的CSP策略 2、预编译
     if (process.env.NODE_ENV !== 'production') {
       // 检测可能的 CSP 限制
       // detect possible CSP restriction

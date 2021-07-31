@@ -21,27 +21,52 @@ import {
   getAndRemoveAttrByRegex
 } from '../helpers'
 
+// 匹配以字符 @ 或 v-on: 开头的字符串，主要作用是检测标签属性名是否是监听事件的指令
 export const onRE = /^@|^v-on:/
+
+// 匹配以字符 v- 或 @ 或 : 开头的字符串，主要作用是检测标签属性名是否是指令
+// # 是 v-slot 缩写
 export const dirRE = process.env.VBIND_PROP_SHORTHAND
   ? /^v-|^@|^:|^\.|^#/
   : /^v-|^@|^:|^#/
+
+// 该正则包含三个分组，第一个分组为 ([^]*?)，该分组是一个惰性匹配的分组，它匹配的内容为任何字符，包括换行符等。第二个分组为 (?:in|of)，该分组用来匹配字符串 in 或者 of，并且该分组是非捕获的分组。第三个分组为 ([^]*)，与第一个分组类似，不同的是第三个分组是非惰性匹配。同时每个分组之间都会匹配至少一个空白符 \s+。通过以上说明可知，正则 forAliasRE 用来匹配 v-for 属性的值，并捕获 in 或 of 前后的字符串。
+// <div v-for="obj of list"></div> 那么正则 forAliasRE 用来匹配字符串 'obj of list'，并捕获到两个字符串 'obj' 和 'list'
 export const forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/
+
+// 匹配 forAliasRE 第一个捕获组所捕获到的字符串
+// <div v-for="(value, key, index) in object"></div> forIteratorRE 正则的第一个捕获组将捕获到字符串 'key'，但第二个捕获组将捕获到字符串 'index'
 export const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/
+
+// 捕获要么以字符 ( 开头，要么以字符 ) 结尾的字符串
+// 用于去掉 v-for 内容中的括号
 const stripParensRE = /^\(|\)$/g
 const dynamicArgRE = /^\[.*\]$/
 
+// 匹配指令中的参数
 const argRE = /:(.*)$/
+
+// 匹配以字符 : 或字符串 v-bind: 开头的字符串，主要用来检测一个标签的属性是否是绑定(v-bind)
 export const bindRE = /^:|^\.|^v-bind:/
 const propBindRE = /^\./
+
+// 匹配修饰符
 const modifierRE = /\.[^.\]]+(?=[^\]]*$)/g
 
+// 匹配 v-slot 指令
 const slotRE = /^v-slot(:|$)|^#/
 
+// 匹配换行回车
 const lineBreakRE = /[\r\n]/
+
+// 匹配空白符
 const whitespaceRE = /\s+/g
 
 const invalidAttributeRE = /[\s"'<>\/=]/
 
+// console.log(he.decode('&#x26;'))  // &#x26; -> '&'
+// he 为第三方的库，he.decode 函数用于 HTML 字符实体的解码工作
+// 将 he.decode 变成可以缓存结果的函数
 const decodeHTMLCached = cached(he.decode)
 
 export const emptySlotScopeToken = `_empty_`
