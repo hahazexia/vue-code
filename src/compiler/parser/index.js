@@ -92,33 +92,37 @@ let maybeComponent
 
 /**
  * {
-    // 节点类型
-    type: 1,
-    // 标签名
-    tag,
-    // 标签的属性数组 [{name, value, start, end}...]
-    attrsList: attrs,
-    // 标签的属性对象 { attrName: attrVal, ... }
-    attrsMap: makeAttrsMap(attrs),
-    // 原始属性对象， 和 attrsMap 一样
-    rawAttrsMap: {},
-    // 父父元素
-    parent,
-    // 存放所有子元素
-    children: [],
-    // 命名空间
-    ns: '',
-    // v-for
-    for: 迭代器，
-    // v-for 的别名
-    alias: item,
+    type: 1, // 节点类型
+    tag, // 标签名
+    attrsList: attrs, // 标签的属性数组 [{name, value, start, end}...]
+    attrsMap: makeAttrsMap(attrs), // 标签的属性对象 { attrName: attrVal, ... }
+    rawAttrsMap: {}, // 原始属性对象，和 attrsMap 一样
+    parent: el, // 父元素
+    children: [], // 子元素
+    ns: '', // 命名空间 svg 标签或者 math 标签或者它们两个的子节点标签才会有命名空间
+    forbidden: false, // 当前标签是否是被禁止的，例如 script 和 style
+    pre: true, // 是否有 v-pre 指令
+    plain: true, // 有 v-pre 指令的标签的子节点，如果没有属性，则设置为 plain:true
+    processed: true， // 当前标签是否已经被处理过了
+    for: 'list'， // v-for 要迭代的那个数据对象，例：v-for="item in list"
+    alias: 'item', // v-for 迭代出的每个数据的别名，例：v-for="item in list"
+    iterator1: 'key', // v-for 迭代出的键名，例如 v-for="(item, key) in list"
+    iterator2: 'index', // v-for 迭代出的索引，例如 v-for="(item, key, index) in list"
+    ifConditions: [{exp, block}], // 带有 v-if 指令的元素会拥有 ifConditions，里面存放所有与之相关的条件指令的值和元素对象
+    elseif: elseifConditions, // v-else-if 指令的值
+    else: true, // 是否有 v-else
+    once: true, // 是否有 v-once
+    key: '', // key 属性的值
+    ref: '', // ref 属性的值
+    refInFor: Boolean, // 当前 ref 元素是否在 v-for 循环中
+    slotName: '', // 具名插槽的名称
+    component: '', // 动态组件 is 属性的值
+    inlineTemplate: true, // 组件是否使用了 inline-template 内联模板
+
+
+
     // input 元素类型
     type: 'checkbox'
-    // key 属性
-    key: exp,
-    // ref
-    ref: val,
-    refInFor: Boolean,
     // 插槽
     slotTarget: 插槽名，
     slotTargetDynamic: 是否动态插槽,
@@ -131,11 +135,6 @@ let maybeComponent
         slotScope: 作用域插槽的值
       }
     }
-    slot标签
-    slotName: 具名插槽的名称，
-    // 动态组件
-    component: compName,
-    inlineTemplate: Boolean,
     // class
     staticClass: className,
     classBinding: className,
@@ -155,15 +154,6 @@ let maybeComponent
     // 其他指令
     directives: [{name,rawName,value,arg,isDynamicArg,modifiers}],
 
-    // 已经被处理过了
-    processed: true，
-    // v-if
-    ifConditions: [{exp, block}],
-    elseif: elseifConditions,
-    else: true,
-    // v-pre
-    pre: true,
-    once: true,
     parent,
   }
  */
@@ -204,38 +194,42 @@ export function parse (
   template: string,
   options: CompilerOptions
 ): ASTElement | void {
-  // 日志
+  // 打印警告信息
   warn = options.warn || baseWarn
 
-  // 是否为 pre 标签
+  // 函数，检测是否为 pre 标签
   platformIsPreTag = options.isPreTag || no
-  // 必须使用 props 进行绑定的属性
+  // 函数，检测一个属性在标签中是否要使用元素对象原生的 prop 进行绑定
   platformMustUseProp = options.mustUseProp || no
-  // 获取标签的命名空间
+  // 函数，获取标签的命名空间
   platformGetTagNamespace = options.getTagNamespace || no
-  // 是否是保留标签（html + svg)
+  // 函数，是否是保留标签（html + svg)
   const isReservedTag = options.isReservedTag || no
-  // 判断一个元素是否为一个组件
+  // 函数，判断一个元素是否为一个组件
   maybeComponent = (el: ASTElement) => !!el.component || !isReservedTag(el.tag)
+
   // 分别获取 options.modules 下的 class、model、style 三个模块中的 transformNode、preTransformNode、postTransformNode 方法
   // 负责处理元素节点上的 class、style、v-model
-  transforms = pluckModuleFunction(options.modules, 'transformNode')
-  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
-  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
+  transforms = pluckModuleFunction(options.modules, 'transformNode') // 中置处理
+  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode') // 前置处理
+  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode') // 后置处理
 
   // 界定符，比如: {{}}
   delimiters = options.delimiters
 
-  // 解析的中间结果放这里，ast对象
+  // 解析的中间结果放这里，ast对象，用来修正当前正在解析元素的父级
   const stack = []
-  // 空格选项
+  // 是否放弃标签之间的空格
   const preserveWhitespace = options.preserveWhitespace !== false
   const whitespaceOption = options.whitespace
+
   // 根节点，以 root 为根，处理后的节点都会按照层级挂载到 root 下，最后 return 的就是 root，一个 ast 语法树
   let root
   // 当前元素的父元素
   let currentParent
+  // 当前解析的标签是否在拥有 v-pre 的标签之内
   let inVPre = false
+  // 当前正在解析的标签是否在 <pre></pre> 标签之内
   let inPre = false
   let warned = false
 
@@ -252,11 +246,13 @@ export function parse (
  *   3、设置自己的子元素，将自己所有非插槽的子元素放到自己的 children 数组中
  */
   function closeElement (element) {
-    // 移除节点末尾的空格，当前 pre 标签内的元素除外
+    // 移除节点末尾的空格，当前 pre 标签内的元素除外
     trimEndingWhitespace(element)
-    // 当前元素不再 pre 节点内，并且也没有被处理过
+
+    // 当前元素不在 v-pre 节点内部，并且也没有被处理过
     if (!inVPre && !element.processed) {
       // 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性
+      // processElement 是一系列 process* 函数集合
       element = processElement(element, options)
     }
     // 处理根节点上存在 v-if、v-else-if、v-else 指令的情况
@@ -294,6 +290,7 @@ export function parse (
           // scoped slot
           // keep it in the children list so that v-else(-if) conditions can
           // find it as the prev node.
+          // 如果一个元素使用了 slot-scope 特性，那么该元素的描述对象会被添加到父级元素的 scopedSlots 对象下，不会作为父级元素的子节点
           const name = element.slotTarget || '"default"'
           ;(currentParent.scopedSlots || (currentParent.scopedSlots = {}))[name] = element
         }
@@ -349,6 +346,8 @@ export function parse (
  *   不能在有状态组件的 根元素 上使用 v-for 指令，因为它会渲染出多个元素
  * @param {*} el
  */
+  // 首先模板必须有且仅有一个被渲染的根元素，第二不能使用 slot 标签和 template 标签作为模板的根元素。对于第二点为什么不能使用 slot 和 template 标签作为模板根元素，这是因为 slot 作为插槽，它的内容是由外界决定的，而插槽的内容很有可能渲染多个节点，template 元素的内容虽然不是由外界决定的，但它本身作为抽象组件是不会渲染任何内容到页面的，而其又可能包含多个子节点，所以也不允许使用 template 标签作为根节点。
+
   function checkRootConstraints (el) {
     // 不能使用 slot 和 template 标签作为组件的根元素
     if (el.tag === 'slot' || el.tag === 'template') {
@@ -380,6 +379,22 @@ export function parse (
     shouldKeepComment: options.comments,
     outputSourceRange: options.outputSourceRange,
 
+
+
+/**
+ *  1、start 钩子函数是当解析 html 字符串遇到开始标签时被调用的。
+    2、模板中禁止使用 <style> 标签和那些没有指定 type 属性或 type 属性值为 text/javascript 的 <script> 标签。
+    3、在 start 钩子函数中会调用前置处理函数，这些前置处理函数都放在 preTransforms 数组中，这么做的目的是为不同平台提供对应平台下的解析工作。
+    4、前置处理函数执行完之后会调用一系列 process* 函数继续对元素描述对象进行加工。
+    5、通过判断 root 是否存在来判断当前解析的元素是否为根元素。
+    6、slot 标签和 template 标签不能作为根元素，并且根元素不能使用 v-for 指令。
+    7、可以定义多个根元素，但必须使用 v-if、v-else-if 以及 v-else 保证有且仅有一个根元素被渲染。
+    8、构建 AST 并建立父子级关系是在 start 钩子函数中完成的，每当遇到非一元标签，会把它存到 currentParent 变量中，当解析该标签的子节点时通过访问 currentParent 变量获取父级元素。
+    9、如果一个元素使用了 v-else-if 或 v-else 指令，则该元素不会作为子节点，而是会被添加到相符的使用了 v-if 指令的元素描述对象的 ifConditions 数组中。
+    10、如果一个元素使用了 slot-scope 特性，则该元素也不会作为子节点，它会被添加到父级元素描述对象的 scopedSlots 属性中。
+    11、对于没有使用条件指令或 slot-scope 特性的元素，会正常建立父子级关系。
+ */
+
 /**
  * 主要做了以下 6 件事情:
  *   1、创建 AST 对象
@@ -398,17 +413,26 @@ export function parse (
       // check namespace.
       // inherit parent ns if there is one
       // 检查命名空间，如果存在，则继承父命名空间
+      // 如果当前元素存在父级并且父级元素存在命名空间，则使用父级的命名空间作为当前元素的命名空间。如果父级元素不存在或父级元素没有命名空间，那么会通过调用 platformGetTagNamespace(tag) 函数获取当前元素的命名空间
       const ns = (currentParent && currentParent.ns) || platformGetTagNamespace(tag)
 
       // handle IE svg bug
       /* istanbul ignore if */
+      /**
+       * ie 11 中 <svg xmlns:feature="http://www.openplans.org/topp"></svg> 会被渲染成：
+       * <svg xmlns:NS1="" NS1:xmlns:feature="http://www.openplans.org/topp"></svg>
+       * 这里 guardIESVGBug 去除 xmlns:NS1="" ，并将 NS1:xmlns:feature 修改为 xmlns:feature
+       */
       if (isIE && ns === 'svg') {
         attrs = guardIESVGBug(attrs)
       }
 
       // 创建当前标签的 AST 对象
       let element: ASTElement = createASTElement(tag, attrs, currentParent)
+
+
       // 设置命名空间
+      // 如果当前解析的开始标签为 svg 标签或者 math 标签或者它们两个的子节点标签，都将会比其他 html 标签的元素描述对象多出一个 ns 属性，且该属性标识了该标签的命名空间。
       if (ns) {
         element.ns = ns
       }
@@ -478,16 +502,29 @@ export function parse (
           inVPre = true
         }
       }
-      // 如果 pre 标签，则设置 inPre 为 true
+
+      // <pre> 标签的解析和 html 解析不同
+      // 1、<pre> 标签会对其所包含的 html 字符实体进行解码
+      // 2、<pre> 标签会保留 html 字符串编写时的空白
+      // 如果当前处理标签是 pre 标签，则设置 inPre 为 true
       if (platformIsPreTag(element.tag)) {
         inPre = true
       }
+
       if (inVPre) {
       // 说明标签上存在 v-pre 指令，这样的节点只会渲染一次，将节点上的属性都设置到 el.attrs 数组对象中，作为静态属性，数据更新时不会渲染这部分内容
-      // 设置 el.attrs 数组对象，每个元素都是一个属性对象 { name: attrName, value: attrVal, start, end }
+
+      /**
+       *  1、如果标签使用了 v-pre 指令，则该标签的元素描述对象的 element.pre 属性将为 true。
+          2、对于使用了 v-pre 指令的标签及其子代标签，它们的任何属性都将会被作为原始属性处理，即使用 processRawAttrs 函数处理之。
+          3、经过 processRawAttrs 函数的处理，会在元素的描述对象上添加 element.attrs 属性，它与 element.attrsList 数组结构相同，不同的是 element.attrs 数组中每个对象的 value 值会经过 JSON.stringify 函数处理。
+          4、如果一个标签没有任何属性，并且该标签是使用了 v-pre 指令标签的子代标签，那么该标签的元素描述对象将被添加 element.plain 属性，并且其值为 true。
+       */
 
         processRawAttrs(element)
       } else if (!element.processed) {
+        // v-for、v-if/v-else-if/v-else、v-once 等指令会被认为是结构化的指令(structural directives)。这些指令在经过 processFor、processIf 以及 processOnce 等函数处理之后，会把这些指令从元素描述对象的 attrsList 数组中移除
+
         // structural directives
         // 处理 v-for 属性，得到 element.for = 可迭代对象 element.alias = 别名
         processFor(element)
@@ -505,13 +542,13 @@ export function parse (
       if (!root) {
         root = element
         if (process.env.NODE_ENV !== 'production') {
-          // 检查根元素，对根元素有一些限制，比如：不能使用 slot 和 template 作为根元素，也不能在有状态组件的根元素上使用 v-for 指令
+          // 检查根元素，对根元素有一些限制，比如：不能使用 slot 和 template 作为根元素，也不能在有状态组件的根元素上使用 v-for 指令。这些限制都是为了保证根元素只能有一个节点，而不是多个节点
           checkRootConstraints(root)
         }
       }
 
       if (!unary) {
-        // 非自闭合标签，通过 currentParent 记录当前元素，下一个元素在处理的时候，就知道自己的父元素是谁
+        // 每当遇到一个非一元标签都会将该元素的描述对象添加到 stack 数组，并且 currentParent 始终存储的是 stack 栈顶的元素，即当前解析元素的父级
         currentParent = element
 
         // 然后将 element push 到 stack 数组，将来处理到当前元素的闭合标签时再拿出来
@@ -653,7 +690,9 @@ function processPre (el) {
   }
 }
 /**
+ * 当标签中存在 v-pre 指令时用 processRawAttrs 将属性作为原生属性处理存入 el.attrs 数组
  * 设置 el.attrs 数组对象，每个元素都是一个属性对象 { name: attrName, value: attrVal, start, end }
+ * el.attrs 和 el.attrsList 的区别，el.attrs 中每个属性的值都是 JSON.stringify 处理过的
  */
 function processRawAttrs (el) {
   const list = el.attrsList
@@ -671,12 +710,14 @@ function processRawAttrs (el) {
       }
     }
   } else if (!el.pre) {
+    // 当前标签没有使用 v-pre，且没有属性。说明当前标签是使用了 v-pre 的标签的子节点
     // non root node in pre blocks with no attributes
     el.plain = true
   }
 }
 
 /**
+ * process* 函数的集合
  * 分别处理元素节点的 key、ref、插槽、自闭合的 slot 标签、动态组件、class、style、v-bind、v-on、其它指令和一些原生属性
  * 然后在 el 对象上添加如下属性：
  * el.key、ref、refInFor、scopedSlot、slotName、component、inlineTemplate、staticClass
@@ -694,6 +735,8 @@ export function processElement (
 
   // determine whether this is a plain element after
   // removing structural attributes
+  // v-for、v-if/v-else-if/v-else、v-once 等指令会被认为是结构化的指令(structural directives)。这些指令在经过 processFor、processIf 以及 processOnce 等函数处理之后，会把这些指令从元素描述对象的 attrsList 数组中移除
+  // 结构化指令处理后判断这个元素是否是一个普通的纯元素
   // 确定 element 是否为一个普通元素
   element.plain = (
     !element.key &&
@@ -718,7 +761,7 @@ export function processElement (
     element = transforms[i](element, options) || element
   }
   /**
-   * 处理元素上的所有属性：
+   * 处理元素上剩余还没处理的属性：
    * v-bind 指令变成：el.attrs 或 el.dynamicAttrs = [{ name, value, start, end, dynamic }, ...]，
    *                或者是必须使用 props 的属性，变成了 el.props = [{ name, value, start, end, dynamic }, ...]
    * v-on 指令变成：el.events 或 el.nativeEvents = { name: [{ value, start, end, modifiers, dynamic }, ...] }
@@ -731,6 +774,13 @@ export function processElement (
 }
 
 /**
+ * 1. <div key="id"></div>   el.key = JSON.stringify('id')
+ * 2. <div :key="id"></div>  el.key = 'id'
+ * 3. <div :key="id | featId"></div>  el.key = '_f("featId")(id)'
+ * 以上就是 key 的所有可能的值
+ * 
+ * 1、key 属性不能被应用到 <template> 标签。
+   2、使用了 key 属性的标签，其元素描述对象的 el.key 属性保存着 key 属性的值。
  * 处理元素上的 key 属性，设置 el.key = val
  * @param {*} el
  */
@@ -784,8 +834,10 @@ function processRef (el) {
 
 /**
  * 处理 v-for，将结果设置到 el 对象上，得到:
- *   el.for = 可迭代对象，比如 arr
- *   el.alias = 别名，比如 item
+    for: 'list'， // v-for 要迭代的那个数据对象，例：v-for="item in list"
+    alias: 'item', // v-for 迭代出的每个数据的别名，例：v-for="item in list"
+    iterator1: 'key', // v-for 迭代出的键名，例如 v-for="(item, key) in list"
+    iterator2: 'index' // v-for 迭代出的索引，例如 v-for="(item, key, index) in list"
  * @param {*} el 元素的 ast 对象
  */
 export function processFor (el: ASTElement) {
@@ -813,14 +865,39 @@ type ForParseResult = {
   iterator2?: string;
 };
 
-// 解析 v-for 指令的表达式，得到 res = { for: iterator, allias: 别名}
+/**
+ *  1、如果 v-for 指令的值为字符串 'obj in list'，则 parseFor 函数的返回值为：
+    {
+      for: 'list',
+      alias: 'obj'
+    }
+
+    2、如果 v-for 指令的值为字符串 '(obj, index) in list'，则 parseFor 函数的返回值为：
+    {
+      for: 'list',
+      alias: 'obj',
+      iterator1: 'index'
+    }
+
+    3、如果 v-for 指令的值为字符串 '(obj, key, index) in list'，则 parseFor 函数的返回值为：
+    {
+      for: 'list',
+      alias: 'obj',
+      iterator1: 'key',
+      iterator2: 'index'
+    }
+ */
+// 解析 v-for 指令的值，得到 res = { for: iterator, allias: 别名}
 export function parseFor (exp: string): ?ForParseResult {
+  // 'obj in list'
+  // 则匹配结果为
+  // [ 'obj in list', 'obj', 'list']
   const inMatch = exp.match(forAliasRE)
   if (!inMatch) return
   const res = {}
   // for = 迭代对象
   res.for = inMatch[2].trim()
-  // 别名
+  // stripParensRE 用于去掉左右空格
   const alias = inMatch[1].trim().replace(stripParensRE, '')
   const iteratorMatch = alias.match(forIteratorRE)
   if (iteratorMatch) {
@@ -834,6 +911,15 @@ export function parseFor (exp: string): ?ForParseResult {
   }
   return res
 }
+
+
+/**
+ *  1、如果标签使用了 v-if 指令，则该标签的元素描述对象的 el.if 属性存储着 v-if 指令的属性值
+    2、如果标签使用了 v-else 指令，则该标签的元素描述对象的 el.else 属性值为 true
+    3、如果标签使用了 v-else-if 指令，则该标签的元素描述对象的 el.elseif 属性存储着 v-else-if 指令的属性值
+    4、如果标签使用了 v-if 指令，则该标签的元素描述对象的 ifConditions 数组中包含“自己”
+    5、如果标签使用了 v-else 或 v-else-if 指令，则该标签的元素描述对象会被添加到与之相符的带有 v-if 指令的元素描述对象的 ifConditions 数组中。
+ */
 /**
  * 处理 v-if、v-else-if、v-else
  * 得到 el.if = "exp"，el.elseif = exp, el.else = true
@@ -863,8 +949,10 @@ function processIf (el) {
   }
 }
 
+// 当一个元素使用了 v-else-if 或 v-else 指令时，它们是不会作为父级元素子节点的，而是会被添加到相符的使用了 v-if 指令的元素描述对象的 ifConditions 数组中
+// 找到使用 v-else-if 和 v-else 元素 el 的前面的 v-if 元素，然后将条件加入到 v-if 元素的 ifConditions 中
 function processIfConditions (el, parent) {
-  // 找到 parent.children 中的最后一个元素节点
+  // 找到 parent.children 中的相对于当前 el 的前一个元素
   const prev = findPrevElement(parent.children)
   if (prev && prev.if) {
     addIfCondition(prev, {
@@ -880,7 +968,7 @@ function processIfConditions (el, parent) {
   }
 }
 /**
- * 找到 children 中的最后一个元素节点
+ * 找到 children 中的前一个元素
  */
 function findPrevElement (children: Array<any>): ASTElement | void {
   let i = children.length
@@ -901,6 +989,32 @@ function findPrevElement (children: Array<any>): ASTElement | void {
 }
 /**
  * 将传递进来的条件对象放进 el.ifConditions 数组中
+ */
+/**
+ * <div v-if="a"></div>
+   <p v-else-if="b"></p>
+   <span v-else></span>
+
+   被 addIfCondition 处理后会变成：
+
+    {
+      type: 1,
+      tag: 'div',
+      ifConditions: [
+        {
+          exp: 'a',
+          block: { type: 1, tag: 'div'}
+        },
+        {
+          exp: 'b',
+          block: { type: 1, tag: 'p' }
+        },
+        {
+          exp: undefined,
+          block: { type: 1, tag: 'span'}
+        }
+      ]
+    }
  */
 export function addIfCondition (el: ASTElement, condition: ASTIfCondition) {
   if (!el.ifConditions) {
@@ -1126,6 +1240,11 @@ function processSlotOutlet (el) {
 }
 
 /**
+ * 1. <div is></div>   el.component = ''
+ * 2. <div is="child"></div>    el.component = JSON.stringify('child')
+ * 3. <div :is="child"></div>    el.component = 'child'
+ * 
+ * 
  * 处理动态组件，<component :is="compName"></component>
  * 得到 el.component = compName
  */
@@ -1360,6 +1479,7 @@ function isTextTag (el): boolean {
   return el.tag === 'script' || el.tag === 'style'
 }
 
+// 非服务端渲染的情况下 <style> 标签和没有指定 type 属性或虽然指定了 type 属性但其值为 text/javascript 的 <script> 标签是被禁止的
 function isForbiddenTag (el): boolean {
   return (
     el.tag === 'style' ||

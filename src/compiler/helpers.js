@@ -197,7 +197,7 @@ export function getRawBindingAttr (
 }
 
 /**
- * 获取 el 对象上执行属性 name 的值
+ * 获取 el 对象上绑定属性的值，例如 v-bind: 或其缩写 : 所定义的属性
  */
 export function getBindingAttr (
   el: ASTElement,
@@ -209,8 +209,10 @@ export function getBindingAttr (
     getAndRemoveAttr(el, ':' + name) ||
     getAndRemoveAttr(el, 'v-bind:' + name)
   if (dynamicValue != null) {
+    // 绑定的属性可以使用过滤器，parseFilters 处理过滤器
     return parseFilters(dynamicValue)
   } else if (getStatic !== false) {
+    // dynamicValue 获取失败说明属性值是非绑定的
     const staticValue = getAndRemoveAttr(el, name)
     if (staticValue != null) {
       return JSON.stringify(staticValue)
@@ -223,6 +225,7 @@ export function getBindingAttr (
 // By default it does NOT remove it from the map (attrsMap) because the map is
 // needed during codegen.
 /**
+ * 获取给定属性的值，还会将该属性从 el.attrsList 数组中移除，并可以选择性地将该属性从 el.attrsMap 对象中移除
  * 从 el.attrsList 中删除指定的属性 name
  * 如果 removeFromMap 为 true，则同样删除 el.attrsMap 对象中的该属性，
  *   比如 v-if、v-else-if、v-else 等属性就会被移除,
