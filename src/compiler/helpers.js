@@ -40,6 +40,17 @@ export function addRawAttr (el: ASTElement, name: string, value: any, range?: Ra
   el.attrsList.push(rangeSetItem({ name, value }, range))
 }
 
+/**
+ * 
+ * @param {*} el ast 对象
+ * @param {*} name 指令的名字，例如 v-custom 则 name 为 custom
+ * @param {*} rawName 原始属性名字，例如 v-custom:arg.prevent
+ * @param {*} value  属性值，例如 v-custom="customFun" 则 value 为 customFun
+ * @param {*} arg 指令指定的参数
+ * @param {*} isDynamicArg 参数是否是动态的参数名
+ * @param {*} modifiers 修饰符组成的对象
+ * @param {*} range 原 el.attrsList 中的对象
+ */
 export function addDirective (
   el: ASTElement,
   name: string,
@@ -71,14 +82,14 @@ function prependModifierMarker (symbol: string, name: string, dynamic?: boolean)
  * 处理事件属性，将事件属性添加到 el.events 对象或者 el.nativeEvents 对象中，格式：
  * el.events[name] = [{ value, start, end, modifiers, dynamic }, ...]
  * 其中用了大量的篇幅在处理 name 属性带修饰符 (modifier) 的情况
- * @param {*} el ast 对象
- * @param {*} name 属性名，即事件名
- * @param {*} value 属性值，即事件回调函数名
- * @param {*} modifiers 修饰符
- * @param {*} important
+ * @param {*} el 当前 ast 对象
+ * @param {*} name v-on 绑定的属性名，即事件名
+ * @param {*} value v-on 绑定的属性值，有可能是事件回调函数名字，有可能是内联语句，有可能是函数表达式
+ * @param {*} modifiers 修饰符组成的对象
+ * @param {*} important 可选参数，是一个布尔值，代表着添加的事件侦听函数的重要级别，如果为 true，则该侦听函数会被添加到该事件侦听函数数组的头部，否则会将其添加到尾部，
  * @param {*} warn 日志
  * @param {*} range
- * @param {*} dynamic 属性名是否为动态属性
+ * @param {*} dynamic 属性名是否为动态属性名
  */
 export function addHandler (
   el: ASTElement,
@@ -90,11 +101,13 @@ export function addHandler (
   range?: Range,
   dynamic?: boolean
 ) {
-  // modifiers 是一个对象，如果传递的参数为空，则给一个冻结的空对象
+
+  // 如果当前 v-on 没有使用修饰符，则 modifiers 用一个冻结的空对象代替
   modifiers = modifiers || emptyObject
+
   // warn prevent and passive modifier
   /* istanbul ignore if */
-  // 提示：prevent 和 passive 修饰符不能一起使用
+  // passive 修饰符不能和 prevent 修饰符一起使用，这是因为在事件监听中 passive 选项参数就是用来告诉浏览器该事件监听函数是不会阻止默认行为的
   if (
     process.env.NODE_ENV !== 'production' && warn &&
     modifiers.prevent && modifiers.passive
@@ -109,27 +122,26 @@ export function addHandler (
   // normalize click.right and click.middle since they don't actually fire
   // this is technically browser-specific, but at least for now browsers are
   // the only target envs that have right/middle clicks.
+  
   // 标准化 click.right 和 click.middle，它们实际上不会被真正的触发，从技术讲他们是它们
-  // 是特定于浏览器的，但至少目前位置只有浏览器才具有右键和中间键的点击
-  if (modifiers.right) {
-    // 右键
-    if (dynamic) {
-      // 动态属性
-      // 属性名为 click 时， name 为 contextmenu，否则就是name本身
+  // 是特定于浏览器的，但至少目前为止只有浏览器才具有右键和中间键的点击
+
+  // 1. 浏览器中点击右键一般会出来一个菜单，这本质上是触发了 contextmenu 事件
+  // 2. 鼠标本没有滚轮点击事件，一般我们区分用户点击的按钮是不是滚轮的方式是监听 mouseup 事件，然后通过事件对象的 event.button 属性值来判断，如果 event.button === 1 则说明用户点击的是滚轮按钮
+
+  if (modifiers.right) { // 右键
+    if (dynamic) { // 动态属性名，也就是说事件名是动态的
+      // 事件名为 click 时， 事件名就为 contextmenu，否则就是 name 本身
       name = `(${name})==='click'?'contextmenu':(${name})`
-    } else if (name === 'click') {
-      // 非动态属性，name = contextmenu
+
+    } else if (name === 'click') { // 非动态属性名，右键点击的事件名改为 contextmenu
       name = 'contextmenu'
-      // 删除修饰符中的 right 属性
-      delete modifiers.right
+      delete modifiers.right // 删除修饰符中的 right，因为已经标准化为 contextmenu 事件了，就不需要 .right 修饰符了
     }
-  } else if (modifiers.middle) {
-    // 中间键
-    if (dynamic) {
-      // 动态属性，name => mouseup 或者 ${name}
+  } else if (modifiers.middle) { // 中键点击
+    if (dynamic) { // 动态属性名，也就是说事件名是动态的，则事件名是 mouseup 或者 name 本身
       name = `(${name})==='click'?'mouseup':(${name})`
-    } else if (name === 'click') {
-      // 非动态属性，mouseup
+    } else if (name === 'click') { // 非动态属性名，中键点击标准化为 mouseup
       name = 'mouseup'
     }
   }
@@ -138,49 +150,64 @@ export function addHandler (
    * 处理 capture、once、passive 这三个修饰符，通过给 name 添加不同的标记来标记这些修饰符
    */
   // check capture modifier
-  if (modifiers.capture) {
+  if (modifiers.capture) { // 处理 capture 修饰符
     delete modifiers.capture
-    // 给带有 capture 修饰符的属性，加上 ! 标记
-    // 如果是动态属性，_p(attrName,!)
-    // 静态属性，!attrName
+    // 给带有 capture 修饰符的属性（事件名），加上 ! 标记
+    // 例如：@click.capture   !click
     name = prependModifierMarker('!', name, dynamic)
   }
-  if (modifiers.once) {
+  
+  if (modifiers.once) { // 处理 once 修饰符
     delete modifiers.once
     // once 修饰符加 ~ 标记
+    // 例如：@click.once  ~click
     name = prependModifierMarker('~', name, dynamic)
   }
+
   /* istanbul ignore if */
-  if (modifiers.passive) {
+  if (modifiers.passive) {  // 处理 passive 修饰符
     delete modifiers.passive
     // passive 修饰符加 & 标记
+    // 例如：@click.passive   &click
     name = prependModifierMarker('&', name, dynamic)
   }
 
   let events
+  // 如果有 native 修饰符，则 el 上添加 nativeEvents；否则添加 events
   if (modifiers.native) {
-    // native 修饰符， 监听组件根元素的原生事件，将事件信息存放到 el.nativeEvents 对象中
     delete modifiers.native
     events = el.nativeEvents || (el.nativeEvents = {})
   } else {
     events = el.events || (el.events = {})
   }
 
+  // 新建一个 newHandler 对象
+  /**
+   * {
+   *    value: 绑定的事件的属性值，也就是事件回调函数名字，或者表达式,
+   *    dynamic: 事件名是否是动态事件名,
+   *    start: start,
+   *    end: end,
+   *    modifiers: 修饰符对象
+   * }
+   */
   const newHandler: any = rangeSetItem({ value: value.trim(), dynamic }, range)
+
+  // 如果当前事件用了修饰符，则给 newHandler 对象加上 modifiers 属性
   if (modifiers !== emptyObject) {
-    // 说明有修饰符，将修饰符对象放到 newHandler 对象上
     // { value, dynamic, start, end, modifiers }
     newHandler.modifiers = modifiers
   }
 
-  // 将配置对象放到 events[name] = [newHander, handler, ...]
+  // events 要么是 ast 的 el.nativeEvents 属性的引用，要么就是 ast 的 el.events 属性的引用
   const handlers = events[name]
+
   /* istanbul ignore if */
-  if (Array.isArray(handlers)) {
+  if (Array.isArray(handlers)) { // 如果已经是一个数组了，根据 important 决定加到数组头部还是尾部
     important ? handlers.unshift(newHandler) : handlers.push(newHandler)
-  } else if (handlers) {
+  } else if (handlers) { // 如果已经有 name 事件了，就变成一个数组，根据 important 决定顺序
     events[name] = important ? [newHandler, handlers] : [handlers, newHandler]
-  } else {
+  } else { // 如果是第一次往其中添加 name 事件，直接就等于处理好的 newHandler
     events[name] = newHandler
   }
 

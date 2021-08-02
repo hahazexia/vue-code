@@ -125,37 +125,26 @@ let maybeComponent
     slotScope: '', // 作用域插槽的值
     slotName: '', // slot 标签的 name 属性，具名插槽的名字
     el.hasBindings: true, // 存在指令，标记为动态的。存在诸如 v-bind v-on : @ 之类
-
+    props: [{name, value, dynamic, start, end}], // 绑定的原生 DOM 对象属性
+    dynamicAttrs: [{name, value, dynamic, start, end}], // 绑定的动态属性名的属性组成的数组
+    attrs: [{name, value, dynamic, start, end}], // 绑定的属性组成的数组，也包含静态属性
+    nativeEvents: { // 原生事件 有 .native 修饰符的
+      name: [{value, dynamic, modifiers, start, end}]
+    },
+    events: { // 事件
+      name: [{value, dynamic, modifiers, start, end}]
+    },
+    directives: [{name, rawName, value, arg, isDynamicArg, modifiers}], // 其他指令
 
 
     // input 元素类型
     type: 'checkbox'
-    scopedSlots: {
-      name: {
-        slotTarget: 插槽名，
-        slotTargetDynamic: boolean,
-        children: [插槽内所有子元素],
-        slotScope: 作用域插槽的值
-      }
-    }
     // class
     staticClass: className,
     classBinding: className,
     // style
     staticStyle: xxx,
     styleBinding: xxx,
-    // 事件
-    nativeEvents: {},
-    events: {
-      name: [{value, dynamic, modifiers, start, end}]
-    },
-    // props
-    props: [{name, value,dynamic, start, end}],
-    // attrs
-    dynamicAttrs: [],
-    attrs: [{name, value, dynamic, start, end}],
-    // 其他指令
-    directives: [{name,rawName,value,arg,isDynamicArg,modifiers}],
 
     parent,
   }
@@ -213,6 +202,28 @@ export function parse (
 
   // 分别获取 options.modules 下的 class、model、style 三个模块中的 transformNode、preTransformNode、postTransformNode 方法
   // 负责处理元素节点上的 class、style、v-model
+
+  // options.modules 来自 src/platforms/web/compiler/modules/index.js 文件导出的一个数组，如下结构
+  /**
+   * [
+        // klass
+        {
+          staticKeys: ['staticClass'],
+          transformNode,
+          genData
+        },
+        // style
+        {
+          staticKeys: ['staticStyle'],
+          transformNode,
+          genData
+        },
+        // model
+        {
+          preTransformNode
+        }
+      ]
+   */
   transforms = pluckModuleFunction(options.modules, 'transformNode') // 中置处理
   preTransforms = pluckModuleFunction(options.modules, 'preTransformNode') // 前置处理
   postTransforms = pluckModuleFunction(options.modules, 'postTransformNode') // 后置处理
@@ -493,6 +504,8 @@ export function parse (
    * input 具体是哪种情况由 el.ifConditions 中的条件来判断
    * <input v-mode="test" :type="checkbox or radio or other(比如 text)" />
    */
+
+
       for (let i = 0; i < preTransforms.length; i++) {
         element = preTransforms[i](element, options) || element
       }
@@ -1321,6 +1334,10 @@ function processAttrs (el) {
       }
 
 
+      // v-bind 属性处理总结：
+      // 1、任何绑定的属性，最终要么会被添加到元素描述对象的 el.attrs 数组中，要么就被添加到元素描述对象的 el.props 数组中。
+      // 2、对于使用了 .sync 修饰符的绑定属性，还会在元素描述对象的 el.events 对象中添加名字为 'update:${驼峰化的属性名}' 的事件。
+
       if (bindRE.test(name)) { // v-bind, <div :id="test"></div>
         // 处理 v-bind 指令属性，最后得到 el.attrs 或者 el.dynamicAttrs = [{ name, value, start, end, dynamic }, ...]
 
@@ -1358,10 +1375,14 @@ function processAttrs (el) {
           }
 
 
+          // 如果有 .camel 修饰符，则将属性名驼峰化
           if (modifiers.camel && !isDynamic) {
             name = camelize(name)
           }
-          // 处理 sync 修饰符
+
+
+          // :test.sync  等价于  :test + @update:test
+          // 处理 .sync 修饰符
           if (modifiers.sync) {
             syncGen = genAssignmentCode(value, `$event`)
             if (!isDynamic) {
@@ -1401,7 +1422,16 @@ function processAttrs (el) {
           }
         }
 
+        /**
+         *  input,textarea,option,select,progress 这些标签的 value 属性都应该使用元素对象的原生的 prop 绑定（除了 type === 'button' 之外）
+            option 标签的 selected 属性应该使用元素对象的原生的 prop 绑定
+            input 标签的 checked 属性应该使用元素对象的原生的 prop 绑定
+            video 标签的 muted 属性应该使用元素对象的原生的 prop 绑定
+        */
+        // platformMustUseProp 函数在判断的时候需要标签的名字(el.tag)，而 el.component 会在元素渲染阶段替换掉 el.tag 的值。所以如果 el.component 存在则会影响 platformMustUseProp 的判断结果，所以需要 !el.component，没有使用 is 属性动态组件
+        // platformMustUseProp 检测一个属性在标签中是否要使用元素对象原生的 prop 进行绑定，注意：这里的 prop 指的是元素对象的属性，而非 Vue 中的 props 概念。
 
+        // 有 .prop 修饰符的属性加入到 el.props 数组中
         if ((modifiers && modifiers.prop) || (
           !el.component && platformMustUseProp(el.tag, el.attrsMap.type, name)
         )) {
@@ -1409,45 +1439,64 @@ function processAttrs (el) {
           // el.props = [{ name, value, start, end, dynamic }, ...]
           addProp(el, name, value, list[i], isDynamic)
         } else {
+          // 没有 .prop 修饰符的属性加入到 el.attrs 中
           // 将属性添加到 el.attrs 数组或者 el.dynamicAttrs 数组
           addAttr(el, name, value, list[i], isDynamic)
         }
+
+        
       } else if (onRE.test(name)) { // v-on, 处理事件，<div @click="test"></div>
-        // 属性名，即事件名
-        name = name.replace(onRE, '')
-        // 是否为动态属性
-        isDynamic = dynamicArgRE.test(name)
+        name = name.replace(onRE, '') // 去掉 v-on 或 @
+        isDynamic = dynamicArgRE.test(name) // 属性名是否是动态属性名
+
         if (isDynamic) {
           // 动态属性，则获取 [] 中的属性名
           name = name.slice(1, -1)
         }
+
         // 处理事件属性，将属性的信息添加到 el.events 或者 el.nativeEvents 对象上，格式：
         // el.events = [{ value, start, end, modifiers, dynamic }, ...]
         addHandler(el, name, value, modifiers, false, warn, list[i], isDynamic)
-      } else { // normal directives // normal directives，其它的普通指令
+
+      } else { // 其他指令和用户自定义指令
         // 得到 el.directives = [{name, rawName, value, arg, isDynamicArg, modifier, start, end }, ...]
 
+        // 去掉属性名称中的 'v-' 或 ':' 或 '@' 等字符，给 name 重新赋值
         name = name.replace(dirRE, '')
         // parse arg
+        // 匹配指令字符串中的参数部分
+        // 如果 v-custom:arg ， 则 argMatch 为 [':arg', 'arg']
         const argMatch = name.match(argRE)
+        // arg 就是参数字符串
         let arg = argMatch && argMatch[1]
+
+
+        // 标识绑定的事件的参数是否动态参数名
         isDynamic = false
+
         if (arg) {
+          // 如果参数存在，则从 name （事件名）中移除冒号加参数
           name = name.slice(0, -(arg.length + 1))
+
+          // 如果参数是动态的参数名，就把左右的方括号[]去掉，得到真正的动态的参数字符串，并且 isDynamic 设置为 true
           if (dynamicArgRE.test(arg)) {
             arg = arg.slice(1, -1)
             isDynamic = true
           }
         }
+
+        // addDirective 函数与 addHandler 函数类似， addDirective 函数的作用是用来在元素描述对象上添加 el.directives 属性的
+
         addDirective(el, name, rawName, value, arg, isDynamic, modifiers, list[i])
+
         if (process.env.NODE_ENV !== 'production' && name === 'model') {
           checkForAliasModel(el, value)
         }
       }
-    } else {
-      // 当前属性不是指令，是静态属性
+    } else {// 处理其他非指令属性值，例如 <div id="box" width="100px"></div>
       // literal attribute
       if (process.env.NODE_ENV !== 'production') {
+        // 如果在静态属性中使用了字面量表达式，则给出警告，提示开发者使用绑定属性作为替代
         const res = parseText(value, delimiters)
         if (res) {
           warn(
@@ -1459,10 +1508,15 @@ function processAttrs (el) {
           )
         }
       }
+
       // 将属性对象放到 el.attrs 数组中，el.attrs = [{ name, value, start, end }]
       addAttr(el, name, JSON.stringify(value), list[i])
       // #6887 firefox doesn't update muted state if set via attribute
       // even immediately after element creation
+
+      // el.attrs 数组中所存储的任何属性都会在由虚拟 DOM 创建真实 DOM 的过程中使用 setAttribute 方法将属性添加到真实DOM元素上。火狐浏览器中存在无法通过 DOM 元素的 setAttribute 方法为 video 标签添加 muted 属性的问题。
+      // 如果一个属性的名字是 muted 并且该标签满足 platformMustUseProp 函数(video 标签满足)，则会额外调用 addProp 函数将属性添加到元素描述对象的 el.props 数组中。
+      // 因为元素描述对象的 el.props 数组中所存储的任何属性都会在由虚拟 DOM 创建真实 DOM 的过程中直接使用真实 DOM 对象添加，也就是说对于 <video> 标签的 muted 属性的添加方式为：videoEl.muted = true。
       if (!el.component &&
           name === 'muted' &&
           platformMustUseProp(el.tag, el.attrsMap.type, name)) {
@@ -1543,6 +1597,7 @@ function guardIESVGBug (attrs) {
   return res
 }
 
+// 检测是否 v-model 在 v-for 中，此时 v-model 双向绑定会失效，给出警告
 function checkForAliasModel (el, value) {
   let _el = el
   while (_el) {
