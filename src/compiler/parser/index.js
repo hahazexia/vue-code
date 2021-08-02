@@ -41,6 +41,8 @@ export const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/
 // 捕获要么以字符 ( 开头，要么以字符 ) 结尾的字符串
 // 用于去掉 v-for 内容中的括号
 const stripParensRE = /^\(|\)$/g
+
+// 匹配动态参数，方括号围起来的 例如动态具名插槽   <template v-slot:[dynamicSlotName]>
 const dynamicArgRE = /^\[.*\]$/
 
 // 匹配指令中的参数
@@ -118,15 +120,14 @@ let maybeComponent
     slotName: '', // 具名插槽的名称
     component: '', // 动态组件 is 属性的值
     inlineTemplate: true, // 组件是否使用了 inline-template 内联模板
+    slotTarget: '', // 具名插槽的名字
+    slotTargetDynamic: true, // 具名插槽的名字是否是动态的
+    slotScope: '', // 作用域插槽的值
 
 
 
     // input 元素类型
     type: 'checkbox'
-    // 插槽
-    slotTarget: 插槽名，
-    slotTargetDynamic: 是否动态插槽,
-    slotScope: 作用域插槽的值,
     scopedSlots: {
       name: {
         slotTarget: 插槽名，
@@ -1096,15 +1097,17 @@ function processSlotContent (el) {
 
   // 2.6 v-slot syntax
   if (process.env.NEW_SLOT_SYNTAX) {
+    // 处理 template 上的 v-slot
+    // <template v-slot:[dynamicSlotName]="slotProps">
     if (el.tag === 'template') {
       // v-slot on <template>
       // v-slot 在 tempalte 标签上，得到 v-slot 的值
       const slotBinding = getAndRemoveAttrByRegex(el, slotRE)
       if (slotBinding) {
-        // 异常提示
+        // 不同插槽语法禁止混合使用
         if (process.env.NODE_ENV !== 'production') {
           if (el.slotTarget || el.slotScope) {
-            // 不同插槽语法禁止混合使用
+            
             warn(
               `Unexpected mixed usage of different slot syntaxes.`,
               el
@@ -1128,18 +1131,18 @@ function processSlotContent (el) {
             )
           }
         }
-        // 得到插槽名称
+        // 得到具名插槽的名字，以及是否是动态插槽名 例如：<template v-slot:[dynamicSlotName]>
         const { name, dynamic } = getSlotName(slotBinding)
-        // 插槽名
+        // 具名插槽的名字
         el.slotTarget = name
-        // 是否为动态插槽
+        // 具名插槽的名字是否是动态插槽名
         el.slotTargetDynamic = dynamic
         // 作用域插槽的值
         el.slotScope = slotBinding.value || emptySlotScopeToken // force it into a scoped slot for perf
       }
     } else {
-      // v-slot on component, denotes default slot
       // 处理组件上的 v-slot，<comp v-slot:header />
+      // v-slot on component, denotes default slot
       // slotBinding = { name: "v-slot:header", value: "", start, end}
       const slotBinding = getAndRemoveAttrByRegex(el, slotRE)
       if (slotBinding) {
@@ -1200,10 +1203,18 @@ function processSlotContent (el) {
 /**
  * 解析 binding，得到插槽名称以及是否为动态插槽
  * @returns { name: 插槽名称, dynamic: 是否为动态插槽 }
+ * 
+ * <template v-slot:[dynamicSlotName]="slotProps"></template>
+ * binding 参数例子：
+ * {
+ *  name: 'v-slot:[dynamicSlotName]',
+ *  value: 'slotProps',
+ * }
  */
 function getSlotName (binding) {
+  // 获取具名插槽的名字
   let name = binding.name.replace(slotRE, '')
-  if (!name) {
+  if (!name) { // 如果没有名字则名字为 default
     if (binding.name[0] !== '#') {
       name = 'default'
     } else if (process.env.NODE_ENV !== 'production') {
@@ -1213,6 +1224,7 @@ function getSlotName (binding) {
       )
     }
   }
+  // 判断具名插槽的名字是否是动态插槽名
   return dynamicArgRE.test(name)
     // dynamic [name]
     ? { name: name.slice(1, -1), dynamic: true }
