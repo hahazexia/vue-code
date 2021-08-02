@@ -123,6 +123,8 @@ let maybeComponent
     slotTarget: '', // 具名插槽的名字
     slotTargetDynamic: true, // 具名插槽的名字是否是动态的
     slotScope: '', // 作用域插槽的值
+    slotName: '', // slot 标签的 name 属性，具名插槽的名字
+    el.hasBindings: true, // 存在指令，标记为动态的。存在诸如 v-bind v-on : @ 之类
 
 
 
@@ -754,6 +756,8 @@ export function processElement (
   // 处理动态组件，<component :is="compoName"></component>得到 el.component = compName，
   // 以及标记是否存在内联模版，el.inlineTemplate = true of false
   processComponent(element)
+
+
   // 为 element 对象分别执行 class、style、model 模块中的 transformNode 方法
   // 不过 web 平台只有 class、style 模块有 transformNode 方法，分别用来处理 class 属性和 style 属性
   // 得到 el.staticStyle、 el.styleBinding、el.staticClass、el.classBinding
@@ -779,7 +783,7 @@ export function processElement (
  * 2. <div :key="id"></div>  el.key = 'id'
  * 3. <div :key="id | featId"></div>  el.key = '_f("featId")(id)'
  * 以上就是 key 的所有可能的值
- * 
+ *
  * 1、key 属性不能被应用到 <template> 标签。
    2、使用了 key 属性的标签，其元素描述对象的 el.key 属性保存着 key 属性的值。
  * 处理元素上的 key 属性，设置 el.key = val
@@ -1107,7 +1111,7 @@ function processSlotContent (el) {
         // 不同插槽语法禁止混合使用
         if (process.env.NODE_ENV !== 'production') {
           if (el.slotTarget || el.slotScope) {
-            
+
             warn(
               `Unexpected mixed usage of different slot syntaxes.`,
               el
@@ -1203,7 +1207,7 @@ function processSlotContent (el) {
 /**
  * 解析 binding，得到插槽名称以及是否为动态插槽
  * @returns { name: 插槽名称, dynamic: 是否为动态插槽 }
- * 
+ *
  * <template v-slot:[dynamicSlotName]="slotProps"></template>
  * binding 参数例子：
  * {
@@ -1255,8 +1259,8 @@ function processSlotOutlet (el) {
  * 1. <div is></div>   el.component = ''
  * 2. <div is="child"></div>    el.component = JSON.stringify('child')
  * 3. <div :is="child"></div>    el.component = 'child'
- * 
- * 
+ *
+ *
  * 处理动态组件，<component :is="compName"></component>
  * 得到 el.component = compName
  */
@@ -1285,60 +1289,75 @@ function  processComponent (el) {
  *         el.props = [{ name, value: true, start, end, dynamic }]
  */
 function processAttrs (el) {
-  // list = [{ name, value, start, end }, ...]
-  const list = el.attrsList
-  let i, l, name, rawName, value, modifiers, syncGen, isDynamic
-  for (i = 0, l = list.length; i < l; i++) {
-    // 属性名
-    name = rawName = list[i].name
-    // 属性值
-    value = list[i].value
-    if (dirRE.test(name)) {
-      // 说明该属性是一个指令
 
-      // 元素上存在指令，将元素标记动态元素
+  // 遍历 el.attrsList，处理剩余所有的属性
+  const list = el.attrsList
+  // name 去掉修饰符的属性名
+  // rawName 原始属性名（带修饰符的属性名）
+  // value 属性值
+  let i, l, name, rawName, value, modifiers, syncGen, isDynamic
+
+  for (i = 0, l = list.length; i < l; i++) {
+    name = rawName = list[i].name// 属性名
+    value = list[i].value// 属性值
+
+    // 匹配以字符 v- 或 @ 或 : 或 # 开头的字符串，检测属性是否是指令
+    if (dirRE.test(name)) {
+
       // mark element as dynamic
-      el.hasBindings = true
-      // modifiers，在属性名上解析修饰符，比如 xx.lazy
+      el.hasBindings = true // 元素上存在指令，将元素标记动态元素
+
+
+      // modifiers，在属性名上解析修饰符，比如 click.stop 返回 {stop: true}
       modifiers = parseModifiers(name.replace(dirRE, ''))
+
       // support .foo shorthand syntax for the .prop modifier
       if (process.env.VBIND_PROP_SHORTHAND && propBindRE.test(name)) {
         // 为 .props 修饰符支持 .foo 速记写法
         (modifiers || (modifiers = {})).prop = true
         name = `.` + name.slice(1).replace(modifierRE, '')
       } else if (modifiers) {
-        // 属性中的修饰符去掉，得到一个干净的属性名
-        name = name.replace(modifierRE, '')
+        name = name.replace(modifierRE, '') // 属性中的修饰符去掉，得到一个干净的属性名
       }
+
+
       if (bindRE.test(name)) { // v-bind, <div :id="test"></div>
         // 处理 v-bind 指令属性，最后得到 el.attrs 或者 el.dynamicAttrs = [{ name, value, start, end, dynamic }, ...]
 
-        // 属性名，比如：id
-        name = name.replace(bindRE, '')
-        // 属性值，比如：test
-        value = parseFilters(value)
-        // 是否为动态属性 <div :[id]="test"></div>
-        isDynamic = dynamicArgRE.test(name)
-        if (isDynamic) {
-          // 如果是动态属性，则去掉属性两侧的方括号 []
+        name = name.replace(bindRE, '') // 去除 v-bind，得到真正的属性名，例如 v-bind:some 变成 some
+        value = parseFilters(value) // 属性值。parseFilters 解析过滤器 例如 <div :key="id | a | b"></div> 将被解析成 _f("b")(_f("a")(id))
+        isDynamic = dynamicArgRE.test(name)  // 绑定的属性是否为动态属性名 例如 <div :[id]="test"></div>
+        if (isDynamic) { // 如果是动态属性名，去掉属性两侧的方括号 []
           name = name.slice(1, -1)
         }
-        // 提示，动态属性值不能为空字符串
+
         if (
           process.env.NODE_ENV !== 'production' &&
           value.trim().length === 0
-        ) {
+        ) { // 提示，动态属性值不能为空字符串
           warn(
             `The value for a v-bind expression cannot be empty. Found in "v-bind:${name}"`
           )
         }
 
-        // 存在修饰符
+        // 处理 v-bind 指令的三个修饰符
+
+        // .prop - 作为一个 DOM property 绑定而不是作为 attribute 绑定。
+        // .camel - (2.1.0+) 将 kebab-case attribute 名转换为 camelCase。(从 2.1.0 开始支持)
+        // .sync (2.3.0+) 语法糖，会扩展成一个更新父组件绑定值的 v-on 侦听器。
+
+        // 官网文档：https://cn.vuejs.org/v2/api/#v-bind
         if (modifiers) {
+
+          // 使用了 prop 修饰符，则意味着该属性将被作为原生 DOM 对象的属性
           if (modifiers.prop && !isDynamic) {
+            // camelize('aa-bb-cc') "aaBbCc" 把连字符写法转换成驼峰写法
             name = camelize(name)
+            // ，如果属性名全等于字符串 'innerHtml'则将属性名重写为字符串 'innerHTML'，因为 innerHTML 是个特例，后四个字母全部大写
             if (name === 'innerHtml') name = 'innerHTML'
           }
+
+
           if (modifiers.camel && !isDynamic) {
             name = camelize(name)
           }
@@ -1381,6 +1400,8 @@ function processAttrs (el) {
             }
           }
         }
+
+
         if ((modifiers && modifiers.prop) || (
           !el.component && platformMustUseProp(el.tag, el.attrsMap.type, name)
         )) {
@@ -1424,8 +1445,8 @@ function processAttrs (el) {
         }
       }
     } else {
+      // 当前属性不是指令，是静态属性
       // literal attribute
-      // 当前属性不是指令
       if (process.env.NODE_ENV !== 'production') {
         const res = parseText(value, delimiters)
         if (res) {
@@ -1451,6 +1472,7 @@ function processAttrs (el) {
   }
 }
 
+// 检查当前元素是否在 v-for 元素包裹中
 function checkInFor (el: ASTElement): boolean {
   let parent = el
   while (parent) {
@@ -1462,6 +1484,9 @@ function checkInFor (el: ASTElement): boolean {
   return false
 }
 
+// 解析修饰符
+// click.stop
+// 返回 {stop: true}
 function parseModifiers (name: string): Object | void {
   const match = name.match(modifierRE)
   if (match) {

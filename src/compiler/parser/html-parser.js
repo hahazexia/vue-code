@@ -82,7 +82,7 @@ function decodeAttr (value, shouldDecodeNewlines) {
  */
 export function parseHTML (html, options) {
   // 栈结构，碰到起始标签入栈，碰到对应结束标签出栈
-  // 可怕判断是否有的标签没有结束标签
+  // 用来判断是否有的标签没有结束标签
   const stack = []
   const expectHTML = options.expectHTML
   // 是否是自闭合标签
@@ -181,11 +181,11 @@ export function parseHTML (html, options) {
          // parseStartTag 函数解析开始标签，如果解析成功了说明的确是开始标签，然后才会走下面的逻辑
          /**
           * parseStartTag() 举例子
-          * 
-          * <div v-if="isSucceed" v-for="v in map"></div> 
-          * 
+          *
+          * <div v-if="isSucceed" v-for="v in map"></div>
+          *
           * 经过 parseStartTag 处理后返回：
-          * 
+          *
           * match = {
               tagName: 'div',
               attrs: [
@@ -271,7 +271,7 @@ export function parseHTML (html, options) {
       }
     } else {
       // 处理 script、style、textarea 标签中的内容，对于纯文本标签的处理宗旨就是将其内容作为纯文本对待
-      
+
       // endTagLength 变量用来保存纯文本标签闭合标签的字符长度
       let endTagLength = 0
       // 开始标签的小写形式
@@ -311,7 +311,7 @@ export function parseHTML (html, options) {
     // 如果两者相等，则说明字符串 html 在经历循环体的代码之后没有任何改变，此时会把 html 字符串作为纯文本对待
     if (html === last) {
       options.chars && options.chars(html)
-      // 如果 stack 数组中还有内容，则说明有标签没有被闭合，给出提示信息
+      // stack 被清空了，但是还有内容，说明是不合法的标签格式， 例如 <div></div><a
       if (process.env.NODE_ENV !== 'production' && !stack.length && options.warn) {
         options.warn(`Mal-formatted tag at end of template: "${html}"`, { start: index + html.length })
       }
@@ -412,19 +412,19 @@ export function parseHTML (html, options) {
     if (expectHTML) {
       /**
        * 最近一次遇到的开始标签是 p 标签，并且当前正在解析的开始标签不能段落式内容(Phrasing content) 模型，这时候 if 语句块的代码才会执行，即调用 parseEndTag(lastTag)。
-       * 
+       *
        * 每一个 html 元素都拥有一个或多个内容模型(content model)，其中 p 标签本身的内容模型是 流式内容(Flow content)，并且 p 标签的特性是只允许包含 段落式内容(Phrasing content)。所以条件成立的情况如下：
-       * 
+       *
        * <p><h2></h2></p>
-       * 
+       *
        * 在解析上面这段 html 字符串的时候，首先遇到 p 标签的开始标签，此时 lastTag 被设置为 p，紧接着会遇到 h2 标签的开始标签，由于 h2 标签的内容模型属于非 段落式内容(Phrasing content) 模型，所以会立即调用 parseEndTag(lastTag) 函数闭合 p 标签，此时由于强行插入了 </p> 标签，所以解析后的字符串将变为如下内容：
-       * 
+       *
        * <p></p><h2></h2></p>
-       * 
+       *
        * 接着，继续解析该字符串，会遇到 <h2></h2> 标签并正常解析之，最后解析器会遇到一个单独的 p 标签的结束标签，即：</p>。这个时候就回到了我们前面讲过的，当解析器遇到 p 标签或者 br 标签的结束标签时会补全他们，最终 <p><h2></h2></p> 这段 html 字符串将被解析为：
-       * 
+       *
        * <p></p><h2></h2><p></p>
-       * 
+       *
        * 而这也就是浏览器的行为，以上是第一个 if 分支的意义。
        */
       if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
